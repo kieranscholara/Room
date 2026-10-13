@@ -1,0 +1,9 @@
+node_modules
+.next
+.local
+package-lock.json
+test-results
+playwright-report
+apps/web/next-env.d.ts
+docs/PRODUCT_REQUIREMENTS.md
+AGENTS.md
