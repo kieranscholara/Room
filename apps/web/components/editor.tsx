@@ -22,14 +22,18 @@ import {
   X,
 } from 'lucide-react';
 import { Button, Field } from '@roomsell/ui';
-import type { SceneObject } from '@roomsell/scene-core';
+import type { Scene, SceneObject } from '@roomsell/scene-core';
+import { measurementGuides, snapToWalls } from '@roomsell/geometry';
+import { RoomControls } from './room-controls';
+import { GroupControls } from './group-controls';
+import { RevisionControls } from './revision-controls';
 import { useEditor } from '../lib/editor-store';
 
 const FloorPlan = dynamic(() => import('./floor-plan'), {
   ssr: false,
   loading: () => <div className="canvas-loading">Preparing measured floor plan…</div>,
 });
-function Properties({ object }: { object: SceneObject }) {
+function Properties({ object, demo }: { object: SceneObject; demo: boolean }) {
   const { scene, proposal, busy, mode, preview } = useEditor();
   const [x, setX] = useState(String(object.transform.x));
   const [z, setZ] = useState(String(object.transform.z));
@@ -40,19 +44,29 @@ function Properties({ object }: { object: SceneObject }) {
     setAngle(String(Math.round((object.transform.rotation * 180) / Math.PI)));
   }, [object, scene?.version]);
   const disabled = busy || Boolean(proposal);
+  const group = scene?.groups.find((candidate) => candidate.objectIds.includes(object.id));
+  const members = scene?.objects.filter((candidate) => group?.objectIds.includes(candidate.id)) ?? [];
+  const positionLocked =
+    object.locks.position || Boolean(group?.locked) || members.some((member) => member.locks.position);
+  const rotationLocked =
+    object.locks.rotation ||
+    Boolean(group?.locked) ||
+    members.some((member) => member.locks.rotation || (member.id !== object.id && member.locks.position));
   return (
     <>
       <div className="product-preview">
         <div className={`product-proxy proxy-${object.category}`} style={{ backgroundColor: object.color }}>
           <BedDouble size={38} strokeWidth={1.1} />
         </div>
-        <span>Illustrative demo furniture</span>
+        <span>{demo ? 'Illustrative demo furniture' : 'Catalogue dimension proxy'}</span>
       </div>
       <div className="product-title">
         <h3>{object.name}</h3>
-        <span className="tag">DEMO</span>
+        <span className="tag">{demo ? 'DEMO' : 'CATALOGUE'}</span>
       </div>
-      <p className="sku">{object.sku} · Natural finish</p>
+      <p className="sku">
+        {object.sku} · {object.variantId}
+      </p>
       <div className="dimensions">
         <span>
           <strong>{object.dimensions.width.toFixed(2)}</strong> W
@@ -87,7 +101,7 @@ function Properties({ object }: { object: SceneObject }) {
               step="0.1"
               required
               value={x}
-              disabled={disabled || object.locks.position}
+              disabled={disabled || positionLocked}
               onChange={(e) => setX(e.target.value)}
             />
           </Field>
@@ -100,7 +114,7 @@ function Properties({ object }: { object: SceneObject }) {
               step="0.1"
               required
               value={z}
-              disabled={disabled || object.locks.position}
+              disabled={disabled || positionLocked}
               onChange={(e) => setZ(e.target.value)}
             />
           </Field>
@@ -115,7 +129,7 @@ function Properties({ object }: { object: SceneObject }) {
               step="1"
               required
               value={angle}
-              disabled={disabled || object.locks.rotation}
+              disabled={disabled || rotationLocked}
               onChange={(e) => setAngle(e.target.value)}
             />
           </Field>
@@ -123,7 +137,7 @@ function Properties({ object }: { object: SceneObject }) {
             type="button"
             aria-label="Rotate 90 degrees"
             title="Rotate 90 degrees"
-            disabled={disabled || object.locks.rotation}
+            disabled={disabled || rotationLocked}
             onClick={() => {
               const rotation = Math.atan2(
                 Math.sin(object.transform.rotation + Math.PI / 2),
@@ -143,11 +157,47 @@ function Properties({ object }: { object: SceneObject }) {
         <Button
           type="submit"
           className="full-width"
-          disabled={disabled || (object.locks.position && object.locks.rotation)}
+          disabled={disabled || (positionLocked && rotationLocked)}
         >
           <MousePointer2 size={15} /> Preview placement
         </Button>
       </form>
+      {group && (
+        <p className="group-note">
+          <Layers size={14} /> {group.name} · {group.locked ? 'group locked' : 'rigid movement'}. Moving this
+          piece moves all {group.objectIds.length} members.
+        </p>
+      )}
+      {scene && (
+        <div className="editor-distance-guides" aria-label="Wall distance guides">
+          <div className="section-label">WALL DISTANCES</div>
+          <dl>
+            {measurementGuides(object, scene.room).map((guide) => (
+              <div key={guide.wall}>
+                <dt>{guide.wall}</dt>
+                <dd>{guide.distance.toFixed(2)} m</dd>
+              </div>
+            ))}
+          </dl>
+          <Button
+            className="full-width"
+            disabled={disabled || positionLocked}
+            onClick={() =>
+              void preview({
+                type: 'transform',
+                objectId: object.id,
+                mode,
+                transform: snapToWalls(object, scene.room, 0.25),
+              })
+            }
+          >
+            Snap to nearby walls
+          </Button>
+          <p className="editor-help">
+            Snaps an edge within 0.25 m of a wall. Furniture, architectural clearance, and locks are checked.
+          </p>
+        </div>
+      )}
       <div className="section-label">OBJECT LOCKS</div>
       <div className="lock-list">
         {(['position', 'rotation', 'product'] as const).map((key) => (
@@ -172,7 +222,7 @@ function Properties({ object }: { object: SceneObject }) {
                   ? 'Keep its exact location'
                   : key === 'rotation'
                     ? 'Keep its orientation'
-                    : 'Keep this exact demo product'}
+                    : 'Keep this exact product'}
               </small>
             </span>
             <span className="toggle">
@@ -191,7 +241,18 @@ function Properties({ object }: { object: SceneObject }) {
   );
 }
 
-export function Editor() {
+interface EditorProps {
+  projectId?: string;
+  endpoint?: string;
+  title?: string;
+  subtitle?: string;
+}
+export function Editor({
+  projectId,
+  endpoint = projectId ? `/api/projects/${encodeURIComponent(projectId)}/scene` : '/api/scene',
+  title,
+  subtitle,
+}: EditorProps = {}) {
   const {
     scene,
     selectedId,
@@ -209,12 +270,20 @@ export function Editor() {
     history,
   } = useEditor();
   const [savedMessage, setSavedMessage] = useState('');
+  const [comparing, setComparing] = useState<Scene | null>(null);
   useEffect(() => {
-    void load();
-  }, [load]);
+    setComparing(null);
+    setSavedMessage('');
+    void load(endpoint);
+  }, [load, endpoint]);
   useEffect(() => {
     function key(event: KeyboardEvent) {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement
+      )
+        return;
       if (event.key === 'Escape' && !busy) cancel();
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
@@ -232,17 +301,17 @@ export function Editor() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="RoomSell home">
+        <a className="brand" href={projectId ? '/workspace' : '/'} aria-label="RoomSell home">
           <span className="brand-icon">
             <Layers size={22} />
           </span>
           roomsell<span className="brand-ai">AI</span>
         </a>
         <div className="workspace-name">
-          Room studio <ChevronRight size={14} /> Bedroom study
+          Room studio <ChevronRight size={14} /> {projectId ? 'Project design' : 'Bedroom study'}
         </div>
-        <span className="demo-pill">Local development demo</span>
-        <div className="avatar" title="Local demo workspace">
+        <span className="demo-pill">{projectId ? 'Organisation workspace' : 'Local development demo'}</span>
+        <div className="avatar" title={projectId ? 'Project workspace' : 'Local demo workspace'}>
           RS
         </div>
       </header>
@@ -250,12 +319,13 @@ export function Editor() {
         <div className="project-heading">
           <div>
             <p className="eyebrow">
-              <ArrowLeft size={13} /> BEDROOM / FIRST DESIGN
+              <ArrowLeft size={13} /> {projectId ? 'PROJECT / ROOM DESIGN' : 'BEDROOM / FIRST DESIGN'}
             </p>
             <h1>
-              The calm bedroom<span className="status-badge">In progress</span>
+              {title ?? scene?.room.name ?? 'The calm bedroom'}
+              <span className="status-badge">In progress</span>
             </h1>
-            <p>A little more space. A room that feels like home.</p>
+            <p>{subtitle ?? 'A little more space. A room that feels like home.'}</p>
           </div>
           <div className="heading-actions">
             <div className="save-status">
@@ -300,8 +370,14 @@ export function Editor() {
               </div>
             </div>
             <div className="confirmed">
-              <ShieldCheck size={13} /> Measurements confirmed · demo
+              <ShieldCheck size={13} />{' '}
+              {scene?.room.measurementsConfirmed
+                ? 'Measurements confirmed'
+                : 'Measurements need confirmation'}
+              {!projectId && ' · demo'}
             </div>
+            <RoomControls />
+            <GroupControls />
             <div className="section-label">
               FURNITURE <span>{shown?.objects.length ?? 0} items</span>
             </div>
@@ -331,21 +407,25 @@ export function Editor() {
                 </button>
               ))}
             </div>
-            <div className="relationships">
-              <Layers size={17} />
-              <div>
-                <strong>Bedroom group</strong>
-                <p>Bedside tables and rug follow the bed during Smart Rearrange.</p>
+            {!projectId && (
+              <div className="relationships">
+                <Layers size={17} />
+                <div>
+                  <strong>Bedroom group</strong>
+                  <p>Bedside tables and rug follow the bed during Smart Rearrange.</p>
+                </div>
               </div>
-            </div>
+            )}
             <div className="design-note">
               <span>DESIGN NOTE</span>
               <p>Start with the pieces you love. Lock them, then explore the rest.</p>
               <div className="note-line" />
             </div>
-            <p className="demo-disclaimer">
-              Synthetic furniture for testing. No retailer inventory, pricing, or quotations are connected.
-            </p>
+            {!projectId && (
+              <p className="demo-disclaimer">
+                Synthetic furniture for testing. No retailer inventory, pricing, or quotations are connected.
+              </p>
+            )}
           </aside>
           <section className="canvas-panel panel" aria-label="Room editor">
             <div className="canvas-toolbar">
@@ -381,7 +461,7 @@ export function Editor() {
                 {error && <Button onClick={() => void load()}>Retry</Button>}
               </div>
             ) : (
-              <FloorPlan />
+              <FloorPlan comparing={comparing} />
             )}
             <div className="mode-bar">
               <div>
@@ -408,10 +488,18 @@ export function Editor() {
               <p>
                 {mode === 'smart'
                   ? 'Move a piece. We’ll find room for the others.'
-                  : 'Move only the selected piece. Invalid moves are rejected.'}
+                  : 'Move the selected piece or its rigid group. Invalid moves are rejected.'}
                 <small>Geometry first. Every lock respected.</small>
               </p>
             </div>
+            {scene && (
+              <RevisionControls
+                scene={scene}
+                endpoint={endpoint}
+                onCompare={setComparing}
+                comparing={comparing}
+              />
+            )}
             {proposal && (
               <div className="proposal-bar" role="region" aria-label="Layout preview">
                 <div>
@@ -455,7 +543,7 @@ export function Editor() {
               <MousePointer2 size={16} />
             </div>
             {selected ? (
-              <Properties object={selected} />
+              <Properties object={selected} demo={!projectId} />
             ) : (
               <p className="empty-selection">
                 Select furniture in the plan or list to inspect its position and locks.
@@ -465,10 +553,14 @@ export function Editor() {
         </div>
         <footer className="page-footer">
           <span>
-            <ShieldCheck size={14} /> Constraint-aware planning · deterministic engine v1
+            <ShieldCheck size={14} /> Constraint-aware planning · deterministic engine v2
           </span>
           <span>
-            {busy ? 'Checking your change…' : 'Local scene persistence active'}
+            {busy
+              ? 'Checking your change…'
+              : projectId
+                ? 'Project scene persistence active'
+                : 'Local scene persistence active'}
             <ArrowUpRight size={13} />
           </span>
         </footer>

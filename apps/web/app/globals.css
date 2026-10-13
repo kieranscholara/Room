@@ -930,3 +930,204 @@ h1 {
     font-size: 9px;
   }
 }
+
+/* Measured room, architectural features, rigid groups and revision review. */
+.room-controls,
+.group-controls {
+  width: 100%;
+  min-width: 0;
+}
+.editor-details {
+  margin: 10px 0;
+  border: 1px solid #e7e1d7;
+  border-radius: 8px;
+  padding: 10px;
+  color: #514c42;
+  font-size: 12px;
+  min-width: 0;
+}
+.editor-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 25px;
+}
+.editor-details > summary::before {
+  content: '+';
+  font-size: 14px;
+}
+.editor-details[open] > summary::before {
+  content: '−';
+}
+.editor-details > summary > span {
+  margin-left: auto;
+}
+.editor-details[open] > summary {
+  margin-bottom: 12px;
+}
+.editor-control-form {
+  display: grid;
+  gap: 10px;
+}
+.editor-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.editor-control-form input,
+.editor-details select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #ded7cc;
+  border-radius: 6px;
+  background: white;
+  padding: 8px;
+  color: #514c42;
+}
+.editor-check-label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  line-height: 1.5;
+  font-size: 11px;
+}
+.editor-check-label input {
+  width: auto;
+  margin: 2px 0 0;
+  accent-color: #24564b;
+}
+.editor-help {
+  color: #756b5d;
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 0;
+}
+.editor-feature-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.editor-feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0;
+}
+.editor-feature-list li > div {
+  flex: 1;
+  min-width: 0;
+}
+.editor-feature-list strong,
+.editor-feature-list small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.editor-feature-list small {
+  font-size: 10px;
+  color: #756b5d;
+  margin-top: 3px;
+}
+.editor-feature-list .button {
+  padding: 6px;
+}
+.editor-group-members {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #e7e1d7;
+  border-radius: 6px;
+  padding: 10px;
+}
+.editor-group-members legend {
+  font-size: 10px;
+  padding: 0 4px;
+}
+.editor-group-members small {
+  margin-left: auto;
+  color: #756b5d;
+}
+.editor-distance-guides {
+  margin-top: 16px;
+}
+.editor-distance-guides dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-size: 11px;
+}
+.editor-distance-guides dl > div {
+  display: flex;
+  justify-content: space-between;
+}
+.editor-distance-guides dt {
+  text-transform: capitalize;
+  color: #756b5d;
+}
+.editor-distance-guides dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.editor-distance-guides .editor-help {
+  margin-top: 7px;
+}
+.plan-snap-controls {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  z-index: 1;
+  display: flex;
+  gap: 10px;
+  font-size: 10px;
+  padding: 5px 8px;
+  background: #fdfbf7e8;
+  border-radius: 6px;
+}
+.plan-snap-controls label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.plan-snap-controls input {
+  accent-color: #24564b;
+}
+.revision-controls {
+  margin: 12px 18px;
+}
+.revision-comparison {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.revision-comparison strong {
+  color: #805299;
+}
+.revision-comparison .button {
+  margin-top: 8px;
+}
+@media (max-width: 950px) {
+  .left-panel .room-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    align-items: start;
+  }
+  .left-panel .editor-details {
+    margin: 0;
+  }
+  .left-panel .group-controls {
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 660px) {
+  .left-panel .room-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plan-snap-controls {
+    top: 46px;
+    right: 12px;
+  }
+  .revision-controls {
+    margin: 10px 12px;
+  }
+}

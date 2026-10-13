@@ -19,7 +19,14 @@ export interface RecordData {
 }
 export interface Persistence {
   load(): Promise<RecordData | null>;
-  save(data: RecordData): Promise<void>;
+  save(data: RecordData, expectedVersion?: number): Promise<void>;
+  saveProposal?(saved: SavedProposal): Promise<void>;
+  loadProposal?(id: string): Promise<SavedProposal | null>;
+  revisions?(): Promise<{ version: number; scene: Scene }[]>;
+}
+export interface SavedProposal {
+  proposal: Proposal;
+  operation: Request & { action: 'preview' };
 }
 export class ServiceError extends Error {
   constructor(
@@ -30,20 +37,30 @@ export class ServiceError extends Error {
     super(message);
   }
 }
-// One local demonstration organisation. This adapter must never serve real tenant/customer data.
 export class EditorService {
   private queue: Promise<unknown> = Promise.resolve();
-  private proposals = new Map<string, { proposal: Proposal; operation: Request & { action: 'preview' } }>();
-  constructor(private persistence: Persistence) {}
+  private proposals = new Map<string, SavedProposal>();
+  private initialScene: Scene;
+  constructor(
+    private persistence: Persistence,
+    initialScene: Scene = createDemoScene(),
+  ) {
+    this.initialScene = sceneSchema.parse(initialScene);
+    if (validateScene(this.initialScene).length)
+      throw new ServiceError(422, 'Initial room geometry is invalid.');
+  }
   private async record(): Promise<RecordData> {
     const stored = await this.persistence.load();
-    if (!stored) return { scene: createDemoScene(), history: [], future: [] };
+    if (!stored) return { scene: structuredClone(this.initialScene), history: [], future: [] };
     const scene = sceneSchema.parse(stored.scene);
     const history = stored.history.map((s) => sceneSchema.parse(s));
     const future = stored.future.map((s) => sceneSchema.parse(s));
     if (
       [scene, ...history, ...future].some(
-        (s) => validateScene(s).length || s.id !== 'demo-bedroom' || s.organisationId !== 'local-demo',
+        (s) =>
+          validateScene(s).length ||
+          s.id !== this.initialScene.id ||
+          s.organisationId !== this.initialScene.organisationId,
       )
     )
       throw new ServiceError(500, 'Invalid local scene data. Restore a valid backup.');
@@ -55,6 +72,24 @@ export class EditorService {
   async read(): Promise<EditorState> {
     await this.queue;
     return this.state(await this.record());
+  }
+  async revisions(): Promise<{ version: number; scene: Scene }[]> {
+    await this.queue;
+    const data = await this.record();
+    const revisions = this.persistence.revisions
+      ? await this.persistence.revisions()
+      : [...data.history, data.scene].reverse().map((scene) => ({ version: scene.version, scene }));
+    return revisions.map((revision) => {
+      const scene = sceneSchema.parse(revision.scene);
+      if (
+        scene.id !== this.initialScene.id ||
+        scene.organisationId !== this.initialScene.organisationId ||
+        scene.version !== revision.version ||
+        validateScene(scene).length
+      )
+        throw new ServiceError(500, 'Invalid scene revision data.');
+      return { version: scene.version, scene };
+    });
   }
   execute(input: unknown): Promise<EditorState | { proposal: Proposal }> {
     const task = this.queue.then(() => this.apply(input));
@@ -78,11 +113,14 @@ export class EditorService {
       };
       if (this.proposals.size >= 100) this.proposals.delete(this.proposals.keys().next().value!);
       this.proposals.set(proposal.id, { proposal: structuredClone(proposal), operation: request });
+      await this.persistence.saveProposal?.({ proposal: structuredClone(proposal), operation: request });
       return { proposal };
     }
     let next: Scene;
     if (request.action === 'accept') {
-      const saved = this.proposals.get(request.proposalId);
+      const saved = this.persistence.loadProposal
+        ? await this.persistence.loadProposal(request.proposalId)
+        : this.proposals.get(request.proposalId);
       if (!saved || saved.proposal.baseVersion !== data.scene.version)
         throw new ServiceError(409, 'The preview expired. Preview the change again.');
       const result = propose(data.scene, saved.operation.operation);
@@ -90,12 +128,33 @@ export class EditorService {
       next = result.scene;
       // Locks and physical dimensions are checked again at the commit boundary.
       if (saved.operation.operation.type !== 'locks') {
-        const conflicts = data.scene.objects.flatMap((o) =>
-          lockConflicts(
-            o,
-            next.objects.find((n) => n.id === o.id)!,
-          ),
-        );
+        const operation = saved.operation.operation;
+        const conflicts = data.scene.objects.flatMap((o) => {
+          const after = next.objects.find((n) => n.id === o.id);
+          if (!after)
+            return operation.type === 'remove-object' && operation.objectId === o.id && !o.locks.product
+              ? []
+              : [
+                  {
+                    code: 'invalid-removal',
+                    message: 'A protected furniture object disappeared.',
+                    objectIds: [o.id],
+                  },
+                ];
+          if (
+            o.sku !== after.sku ||
+            o.variantId !== after.variantId ||
+            JSON.stringify(o.dimensions) !== JSON.stringify(after.dimensions)
+          )
+            return [
+              {
+                code: 'catalogue-mutation',
+                message: 'Furniture identity or physical dimensions changed.',
+                objectIds: [o.id],
+              },
+            ];
+          return lockConflicts(o, after);
+        });
         if (conflicts.length) throw new ServiceError(422, 'A locked property changed.', conflicts);
       }
       data.history.push(structuredClone(data.scene));
@@ -116,7 +175,7 @@ export class EditorService {
     // Bound local history; production will use append-only relational scene_versions.
     data.history = data.history.slice(-100);
     data.future = data.future.slice(-100);
-    await this.persistence.save(data);
+    await this.persistence.save(data, request.expectedVersion);
     this.proposals.clear();
     return this.state(data);
   }

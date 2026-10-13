@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { EditorService, type Persistence, type RecordData } from '../apps/web/lib/editor-service';
 import { FilePersistence } from '../apps/web/lib/local-persistence';
 import type { EditorState, Operation, Proposal } from '@roomsell/scene-core';
+import { createDemoScene } from '@roomsell/scene-core';
 
 class Memory implements Persistence {
   data: RecordData | null = null;
@@ -34,6 +35,21 @@ async function accept(service: EditorService, proposal: Proposal) {
   })) as EditorState;
 }
 describe('authoritative local scene service', () => {
+  it('validates initial scenes before reading an empty store', () => {
+    const scene = createDemoScene();
+    scene.objects[1].transform.x = -1;
+    expect(() => new EditorService(new Memory(), scene)).toThrow('Initial room geometry is invalid');
+  });
+  it('rejects foreign revisions returned by a persistence adapter', async () => {
+    const memory = new Memory();
+    const foreign = createDemoScene();
+    foreign.organisationId = 'another-organisation';
+    const persistence = {
+      ...{ load: () => memory.load(), save: (data: RecordData) => memory.save(data) },
+      revisions: async () => [{ version: foreign.version, scene: foreign }],
+    };
+    await expect(new EditorService(persistence).revisions()).rejects.toMatchObject({ status: 500 });
+  });
   it('previews without committing; accept, undo and redo preserve exact transforms and locks', async () => {
     const service = new EditorService(new Memory());
     const original = (await service.read()).scene;

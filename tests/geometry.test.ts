@@ -18,7 +18,7 @@ describe('versioned scene contract', () => {
   });
   it('rejects duplicate IDs, missing dimensions, nonfinite positions and unknown schema versions', () => {
     const scene = createDemoScene();
-    expect(sceneSchema.safeParse({ ...scene, schemaVersion: 2 }).success).toBe(false);
+    expect(sceneSchema.safeParse({ ...scene, schemaVersion: 3 }).success).toBe(false);
     expect(sceneSchema.safeParse({ ...scene, objects: [scene.objects[1], scene.objects[1]] }).success).toBe(
       false,
     );

@@ -46,30 +46,95 @@ export const zoneSchema = z
   .object({
     id,
     name: z.string().min(1),
-    kind: z.enum(['door', 'obstacle', 'clearance']),
+    kind: z.enum(['door', 'obstacle', 'clearance', 'circulation']),
     x: coordinate,
     z: coordinate,
     width: z.number().positive(),
     depth: z.number().positive(),
   })
   .strict();
-export const sceneSchema = z
+export const openingSchema = z
   .object({
-    schemaVersion: z.literal(1),
     id,
-    organisationId: id,
-    version: z.number().int().nonnegative(),
-    room: z
-      .object({
-        name: z.string().min(1).max(100),
-        width: z.number().min(2).max(30),
-        depth: z.number().min(2).max(30),
-        height: z.number().min(2).max(6),
-        measurementsConfirmed: z.boolean(),
-        zones: z.array(zoneSchema).max(50),
-      })
-      .strict(),
-    objects: z.array(objectSchema).max(30),
+    name: z.string().min(1).max(100),
+    kind: z.enum(['door', 'window']),
+    wall: z.enum(['north', 'east', 'south', 'west']),
+    // Offset is measured from the west corner on north/south, north corner on east/west.
+    offset: z.number().finite().nonnegative().max(30),
+    width: z.number().finite().positive().max(30),
+    height: z.number().finite().positive().max(6),
+    sillHeight: z.number().finite().nonnegative().max(6),
+    // Doors reserve the full swing envelope, conservatively represented as a rectangle.
+    clearanceDepth: z.number().finite().positive().max(30),
+  })
+  .strict();
+export const roomSchema = z
+  .object({
+    name: z.string().min(1).max(100),
+    width: z.number().finite().min(2).max(30),
+    depth: z.number().finite().min(2).max(30),
+    height: z.number().finite().min(2).max(6),
+    measurementsConfirmed: z.boolean(),
+    zones: z.array(zoneSchema).max(50),
+    openings: z.array(openingSchema).max(50).default([]),
+  })
+  .strict()
+  .superRefine((room, ctx) => {
+    if (new Set(room.zones.map((zone) => zone.id)).size !== room.zones.length)
+      ctx.addIssue({ code: 'custom', message: 'Duplicate zone ID' });
+    for (const zone of room.zones) {
+      if (zone.x < 0 || zone.z < 0 || zone.x + zone.width > room.width || zone.z + zone.depth > room.depth)
+        ctx.addIssue({ code: 'custom', message: 'Architectural zone must be inside the room' });
+    }
+    if (new Set(room.openings.map((opening) => opening.id)).size !== room.openings.length)
+      ctx.addIssue({ code: 'custom', message: 'Duplicate opening ID' });
+    for (const opening of room.openings) {
+      const horizontal = opening.wall === 'north' || opening.wall === 'south';
+      const length = horizontal ? room.width : room.depth;
+      const perpendicular = horizontal ? room.depth : room.width;
+      if (opening.offset + opening.width > length || opening.clearanceDepth > perpendicular)
+        ctx.addIssue({ code: 'custom', message: 'Opening and its clearance must fit within the room' });
+      if (opening.sillHeight + opening.height > room.height)
+        ctx.addIssue({ code: 'custom', message: 'Opening extends above the ceiling' });
+      if (opening.kind === 'door' && (opening.sillHeight !== 0 || opening.clearanceDepth < opening.width))
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A door must reach the floor and reserve at least its full swing depth',
+        });
+    }
+  });
+export const groupSchema = z
+  .object({
+    id,
+    name: z.string().min(1).max(100),
+    objectIds: z.array(id).min(2).max(30),
+    locked: z.boolean(),
+  })
+  .strict();
+const legacyRoomSchema = z
+  .object({
+    name: z.string().min(1).max(100),
+    width: z.number().min(2).max(30),
+    depth: z.number().min(2).max(30),
+    height: z.number().min(2).max(6),
+    measurementsConfirmed: z.boolean(),
+    zones: z
+      .array(zoneSchema.omit({ kind: true }).extend({ kind: z.enum(['door', 'obstacle', 'clearance']) }))
+      .max(50),
+  })
+  .strict();
+const sceneFields = {
+  id,
+  organisationId: id,
+  version: z.number().int().nonnegative(),
+  objects: z.array(objectSchema).max(30),
+};
+const canonicalSceneSchema = z
+  .object({
+    ...sceneFields,
+    schemaVersion: z.literal(2),
+    room: roomSchema,
+    groups: z.array(groupSchema).max(15).default([]),
   })
   .strict()
   .superRefine((scene, ctx) => {
@@ -85,22 +150,43 @@ export const sceneSchema = z
       if (object.follows && scene.objects.find((o) => o.id === object.follows?.anchorId)?.follows)
         ctx.addIssue({
           code: 'custom',
-          message: 'Nested groups are not supported in schema v1',
+          message: 'Nested soft relationships are not supported',
           path: ['objects'],
         });
     }
-    if (new Set(scene.room.zones.map((zone) => zone.id)).size !== scene.room.zones.length)
-      ctx.addIssue({ code: 'custom', message: 'Duplicate zone ID' });
-    for (const zone of scene.room.zones) {
-      if (
-        zone.x < 0 ||
-        zone.z < 0 ||
-        zone.x + zone.width > scene.room.width ||
-        zone.z + zone.depth > scene.room.depth
-      )
-        ctx.addIssue({ code: 'custom', message: 'Architectural zone must be inside the room' });
+    const grouped = new Set<string>();
+    if (new Set(scene.groups.map((group) => group.id)).size !== scene.groups.length)
+      ctx.addIssue({ code: 'custom', message: 'Duplicate group ID', path: ['groups'] });
+    for (const group of scene.groups) {
+      for (const objectId of group.objectIds) {
+        if (!ids.has(objectId))
+          ctx.addIssue({ code: 'custom', message: 'Group references missing furniture', path: ['groups'] });
+        if (grouped.has(objectId))
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Furniture may belong to only one rigid group',
+            path: ['groups'],
+          });
+        grouped.add(objectId);
+      }
     }
   });
+const legacySceneSchema = z
+  .object({ ...sceneFields, schemaVersion: z.literal(1), room: legacyRoomSchema })
+  .strict();
+// Strictly recognise v1 before upgrading; unknown versions and fields remain invalid.
+export const sceneSchema = z.preprocess((input) => {
+  if (typeof input === 'object' && input !== null && 'schemaVersion' in input && input.schemaVersion === 1) {
+    const legacy = legacySceneSchema.safeParse(input);
+    if (legacy.success)
+      return { ...legacy.data, schemaVersion: 2, room: { ...legacy.data.room, openings: [] }, groups: [] };
+  }
+  return input;
+}, canonicalSceneSchema);
+// Explicit migration preserves IDs, versions, dimensions, locks and transforms exactly.
+export function migrateScene(input: unknown): Scene {
+  return sceneSchema.parse(input);
+}
 export const operationSchema = z.discriminatedUnion('type', [
   z
     .object({
@@ -111,6 +197,11 @@ export const operationSchema = z.discriminatedUnion('type', [
     })
     .strict(),
   z.object({ type: z.literal('locks'), objectId: id, locks: locksSchema }).strict(),
+  z.object({ type: z.literal('room'), room: roomSchema }).strict(),
+  z.object({ type: z.literal('group'), group: groupSchema }).strict(),
+  z.object({ type: z.literal('group-remove'), groupId: id }).strict(),
+  z.object({ type: z.literal('add-object'), object: objectSchema }).strict(),
+  z.object({ type: z.literal('remove-object'), objectId: id }).strict(),
 ]);
 export const requestSchema = z.discriminatedUnion('action', [
   z
@@ -127,6 +218,11 @@ export const requestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('redo'), expectedVersion: z.number().int().nonnegative() }).strict(),
 ]);
 export type Scene = z.infer<typeof sceneSchema>;
+export type Room = z.infer<typeof roomSchema>;
+export type Opening = z.infer<typeof openingSchema>;
+export type Zone = z.infer<typeof zoneSchema>;
+export type FurnitureGroup = z.infer<typeof groupSchema>;
+export type Group = z.infer<typeof groupSchema>;
 export type SceneObject = z.infer<typeof objectSchema>;
 export type Transform = z.infer<typeof transformSchema>;
 export type Operation = z.infer<typeof operationSchema>;
@@ -215,7 +311,7 @@ export function createDemoScene(): Scene {
   const wardrobe = furniture('wardrobe', 'Oak wardrobe', 'wardrobe', 0.65, 1.8, 2.1, 5.55, 3.4, '#8d7561');
   wardrobe.locks = { position: true, rotation: true, product: true };
   return sceneSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'demo-bedroom',
     organisationId: 'local-demo',
     version: 0,

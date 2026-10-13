@@ -3,16 +3,20 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Group, Text, Line, Circle } from 'react-konva';
 import { LockKeyhole, Minus, Plus, Hand, Maximize } from 'lucide-react';
 import { Button } from '@roomsell/ui';
-import { rotate } from '@roomsell/geometry';
+import { measurementGuides, openingZones, rotate, snapToWalls } from '@roomsell/geometry';
+import type { Scene, SceneObject } from '@roomsell/scene-core';
 import { useEditor } from '../lib/editor-store';
 
-export default function FloorPlan() {
+export default function FloorPlan({ comparing = null }: { comparing?: Scene | null }) {
   const { scene: saved, proposal, selectedId, select, preview, mode, busy } = useEditor();
   const scene = proposal?.scene ?? saved;
   const container = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(760);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState(false);
+  const [gridSnap, setGridSnap] = useState(true);
+  const [wallSnap, setWallSnap] = useState(true);
+  const [draggingObject, setDraggingObject] = useState<SceneObject | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   useEffect(() => {
     const element = container.current;
@@ -27,11 +31,23 @@ export default function FloorPlan() {
   const ox = (width - scene.room.width * scale) / 2 + offset.x;
   const oz = (height - scene.room.depth * scale) / 2 + offset.y;
   const grid = Array.from({ length: Math.floor(scene.room.width * 2) + 1 }, (_, i) => i / 2);
+  const measuredObject = draggingObject ?? scene.objects.find((object) => object.id === selectedId);
+  const guides = measuredObject ? measurementGuides(measuredObject, scene.room) : [];
   const rows = Array.from({ length: Math.floor(scene.room.depth * 2) + 1 }, (_, i) => i / 2);
   return (
     <div className="plan-wrapper" ref={container}>
       <div className="plan-badge">
         <span className="live-dot" /> Measured floor plan <span>1 square = 0.5 m</span>
+      </div>
+      <div className="plan-snap-controls" aria-label="Snapping preferences">
+        <label>
+          <input type="checkbox" checked={gridSnap} onChange={(event) => setGridSnap(event.target.checked)} />{' '}
+          Grid 0.1 m
+        </label>
+        <label>
+          <input type="checkbox" checked={wallSnap} onChange={(event) => setWallSnap(event.target.checked)} />{' '}
+          Wall snap
+        </label>
       </div>
       <Stage
         width={width}
@@ -75,19 +91,21 @@ export default function FloorPlan() {
                 listening={false}
               />
             ))}
-            {scene.room.zones.map((zone) => (
+            {[...scene.room.zones, ...openingZones(scene.room)].map((zone) => (
               <Group key={zone.id} x={zone.x * scale} y={zone.z * scale}>
                 <Rect
                   width={zone.width * scale}
                   height={zone.depth * scale}
-                  fill="#f7e9cc"
+                  fill={
+                    zone.kind === 'obstacle' ? '#ddd5ce' : zone.kind === 'circulation' ? '#e0eee9' : '#f7e9cc'
+                  }
                   opacity={0.8}
                   stroke="#bd9652"
                   dash={[5, 4]}
                   strokeWidth={1}
                 />
                 <Text
-                  text="DOOR\nCLEARANCE"
+                  text={zone.name.toUpperCase().replace(' ', '\n')}
                   width={zone.width * scale}
                   height={zone.depth * scale}
                   fontSize={10}
@@ -98,9 +116,43 @@ export default function FloorPlan() {
                 />
               </Group>
             ))}
+            {comparing && (
+              <Group listening={false}>
+                <Rect
+                  width={comparing.room.width * scale}
+                  height={comparing.room.depth * scale}
+                  stroke="#9569b5"
+                  strokeWidth={2}
+                  dash={[8, 6]}
+                />
+                {comparing.objects.map((object) => (
+                  <Rect
+                    key={`revision-${object.id}`}
+                    x={object.transform.x * scale}
+                    y={object.transform.z * scale}
+                    offsetX={(object.dimensions.width * scale) / 2}
+                    offsetY={(object.dimensions.depth * scale) / 2}
+                    width={object.dimensions.width * scale}
+                    height={object.dimensions.depth * scale}
+                    rotation={(-object.transform.rotation * 180) / Math.PI}
+                    stroke="#9569b5"
+                    strokeWidth={2}
+                    dash={[6, 4]}
+                    opacity={0.7}
+                  />
+                ))}
+              </Group>
+            )}
             {scene.objects.map((object) => {
               const selected = object.id === selectedId;
               const changed = proposal?.movedIds.includes(object.id);
+              const rigidGroup = scene.groups.find((group) => group.objectIds.includes(object.id));
+              const positionLocked =
+                object.locks.position ||
+                Boolean(rigidGroup?.locked) ||
+                scene.objects.some(
+                  (member) => rigidGroup?.objectIds.includes(member.id) && member.locks.position,
+                );
               const w = object.dimensions.width * scale,
                 d = object.dimensions.depth * scale;
               const extentZ =
@@ -124,19 +176,58 @@ export default function FloorPlan() {
                   x={object.transform.x * scale}
                   y={object.transform.z * scale}
                   rotation={(-object.transform.rotation * 180) / Math.PI}
-                  draggable={!object.locks.position && !pan && !busy && !proposal}
+                  draggable={!positionLocked && !pan && !busy && !proposal}
                   onClick={() => select(object.id)}
                   onTap={() => select(object.id)}
-                  onDragStart={() => select(object.id)}
+                  onDragStart={() => {
+                    select(object.id);
+                    setDraggingObject(object);
+                  }}
+                  onDragMove={(event) => {
+                    let candidate = {
+                      ...object,
+                      transform: {
+                        ...object.transform,
+                        x: event.target.x() / scale,
+                        z: event.target.y() / scale,
+                      },
+                    };
+                    if (gridSnap)
+                      candidate = {
+                        ...candidate,
+                        transform: {
+                          ...candidate.transform,
+                          x: Math.round(candidate.transform.x * 10) / 10,
+                          z: Math.round(candidate.transform.z * 10) / 10,
+                        },
+                      };
+                    if (wallSnap) candidate = { ...candidate, transform: snapToWalls(candidate, scene.room) };
+                    event.target.position({
+                      x: candidate.transform.x * scale,
+                      y: candidate.transform.z * scale,
+                    });
+                    setDraggingObject(candidate);
+                  }}
                   onDragEnd={(event) => {
-                    const x = Math.round((event.target.x() / scale) * 10) / 10;
-                    const z = Math.round((event.target.y() / scale) * 10) / 10;
+                    let transform = {
+                      ...object.transform,
+                      x: event.target.x() / scale,
+                      z: event.target.y() / scale,
+                    };
+                    if (gridSnap)
+                      transform = {
+                        ...transform,
+                        x: Math.round(transform.x * 10) / 10,
+                        z: Math.round(transform.z * 10) / 10,
+                      };
+                    if (wallSnap) transform = snapToWalls({ ...object, transform }, scene.room);
+                    setDraggingObject(null);
                     event.target.position({ x: object.transform.x * scale, y: object.transform.z * scale });
                     void preview({
                       type: 'transform',
                       objectId: object.id,
                       mode,
-                      transform: { ...object.transform, x, z },
+                      transform,
                     });
                   }}
                 >
@@ -226,7 +317,7 @@ export default function FloorPlan() {
                     rotation={(object.transform.rotation * 180) / Math.PI}
                     listening={false}
                   />
-                  {object.locks.position && (
+                  {positionLocked && (
                     <Group x={w / 2 - 8} y={-d / 2 + 8} listening={false}>
                       <Circle radius={11} fill="#24564b" />
                       <Text text="L" x={-4} y={-5} fill="white" fontSize={10} fontStyle="bold" />
@@ -242,6 +333,51 @@ export default function FloorPlan() {
               strokeWidth={7}
               listening={false}
             />
+            {scene.room.openings.map((opening) => {
+              const horizontal = opening.wall === 'north' || opening.wall === 'south';
+              const position = horizontal
+                ? { x: opening.offset * scale, y: opening.wall === 'north' ? 0 : scene.room.depth * scale }
+                : { x: opening.wall === 'west' ? 0 : scene.room.width * scale, y: opening.offset * scale };
+              return (
+                <Group key={opening.id} {...position} listening={false}>
+                  <Line
+                    points={horizontal ? [0, 0, opening.width * scale, 0] : [0, 0, 0, opening.width * scale]}
+                    stroke={opening.kind === 'window' ? '#5e9ea9' : '#b08042'}
+                    strokeWidth={8}
+                  />
+                  <Line
+                    points={horizontal ? [0, 0, opening.width * scale, 0] : [0, 0, 0, opening.width * scale]}
+                    stroke="#fdfbf7"
+                    strokeWidth={3}
+                  />
+                </Group>
+              );
+            })}
+            <Group listening={false}>
+              {guides.map((guide) => (
+                <Group key={guide.wall}>
+                  <Line
+                    points={[
+                      guide.from.x * scale,
+                      guide.from.z * scale,
+                      guide.to.x * scale,
+                      guide.to.z * scale,
+                    ]}
+                    stroke="#356b60"
+                    strokeWidth={1}
+                    dash={[3, 4]}
+                  />
+                  <Text
+                    x={((guide.from.x + guide.to.x) * scale) / 2 + 4}
+                    y={((guide.from.z + guide.to.z) * scale) / 2 + 4}
+                    text={`${guide.distance.toFixed(2)} m`}
+                    fontSize={10}
+                    fill="#24564b"
+                    padding={3}
+                  />
+                </Group>
+              ))}
+            </Group>
             <Text
               text={`${scene.room.width.toFixed(2)} m`}
               width={scene.room.width * scale}

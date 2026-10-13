@@ -3,9 +3,9 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { EditorState, Operation, Proposal, Scene } from '@roomsell/scene-core';
 
-async function api(body?: unknown) {
+async function api(endpoint: string, body?: unknown) {
   const response = await fetch(
-    '/api/scene',
+    endpoint,
     body
       ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
       : { cache: 'no-store' },
@@ -15,6 +15,7 @@ async function api(body?: unknown) {
   return data;
 }
 interface Store {
+  endpoint: string;
   scene: Scene | null;
   proposal: Proposal | null;
   selectedId: string;
@@ -23,7 +24,7 @@ interface Store {
   canUndo: boolean;
   canRedo: boolean;
   mode: 'manual' | 'smart';
-  load(): Promise<void>;
+  load(endpoint?: string): Promise<void>;
   select(id: string): void;
   setMode(mode: 'manual' | 'smart'): void;
   preview(operation: Operation, immediate?: boolean): Promise<void>;
@@ -60,6 +61,7 @@ export const useEditor = create<Store>()(
       }
     }
     return {
+      endpoint: '/api/scene',
       scene: null,
       proposal: null,
       selectedId: 'bed',
@@ -68,7 +70,17 @@ export const useEditor = create<Store>()(
       canUndo: false,
       canRedo: false,
       mode: 'smart',
-      load: () => run(async () => state(await api())),
+      load: (endpoint) =>
+        run(async () => {
+          if (endpoint && endpoint !== get().endpoint)
+            set((s) => {
+              s.endpoint = endpoint;
+              s.scene = null;
+              s.proposal = null;
+              s.selectedId = '';
+            });
+          state(await api(get().endpoint));
+        }),
       select: (id) =>
         set((s) => {
           s.selectedId = id;
@@ -81,13 +93,19 @@ export const useEditor = create<Store>()(
         run(async () => {
           const scene = get().scene;
           if (!scene) return;
-          const { proposal } = (await api({
+          const { proposal } = (await api(get().endpoint, {
             action: 'preview',
             expectedVersion: scene.version,
             operation,
           })) as { proposal: Proposal };
           if (immediate)
-            state(await api({ action: 'accept', expectedVersion: scene.version, proposalId: proposal.id }));
+            state(
+              await api(get().endpoint, {
+                action: 'accept',
+                expectedVersion: scene.version,
+                proposalId: proposal.id,
+              }),
+            );
           else
             set((s) => {
               s.proposal = proposal;
@@ -97,7 +115,13 @@ export const useEditor = create<Store>()(
         run(async () => {
           const { scene, proposal } = get();
           if (scene && proposal)
-            state(await api({ action: 'accept', expectedVersion: scene.version, proposalId: proposal.id }));
+            state(
+              await api(get().endpoint, {
+                action: 'accept',
+                expectedVersion: scene.version,
+                proposalId: proposal.id,
+              }),
+            );
         }),
       cancel: () =>
         set((s) => {
@@ -107,7 +131,7 @@ export const useEditor = create<Store>()(
       history: (action) =>
         run(async () => {
           const scene = get().scene;
-          if (scene) state(await api({ action, expectedVersion: scene.version }));
+          if (scene) state(await api(get().endpoint, { action, expectedVersion: scene.version }));
         }),
     };
   }),

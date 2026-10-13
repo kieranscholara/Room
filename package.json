@@ -31,8 +31,10 @@
     "eslint": "^9.39.0",
     "fast-check": "^4.3.0",
     "prettier": "^3.9.10",
+    "supabase": "^2.120.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.0",
-    "vitest": "^3.2.4"
-  }
+    "vitest": "^4.1.11"
+  },
+  "type": "module"
 }
