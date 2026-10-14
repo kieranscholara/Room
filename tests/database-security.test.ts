@@ -102,6 +102,7 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
     actorId: string,
     customerId: string | null,
     name: string,
+    scene = createDemoScene(),
   ) {
     return assertSuccess(
       await service.rpc('create_project', {
@@ -113,7 +114,7 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
         p_currency: 'EUR',
         p_style: 'Natural',
         p_room_type: 'bedroom',
-        p_scene: createDemoScene(),
+        p_scene: scene,
       }),
     ) as ProjectBundle;
   }
@@ -132,6 +133,33 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
         locks: { position: true, rotation: false, product: false },
       },
     });
+  }
+
+  function catalogueInput(sku: string) {
+    const inventory = {
+      sku,
+      name: 'Security catalogue bed',
+      color: '#112233',
+      material: 'Oak',
+      priceMinor: 125000,
+      dimensions: { width: 1.6, depth: 2, height: 1 },
+      active: true,
+      availability: 'in_stock',
+      stockQuantity: 3,
+      leadTimeDays: 7,
+    };
+    return { ...inventory, category: 'bed', currency: 'EUR', variants: [{ ...inventory }] };
+  }
+
+  async function writeCatalogue(input: ReturnType<typeof catalogueInput>) {
+    return assertSuccess(
+      await service.rpc('catalogue_product_write', {
+        p_org_id: orgA,
+        p_actor_id: ownerA.id,
+        p_product_id: null,
+        p_product: input,
+      }),
+    ) as string;
   }
 
   beforeAll(async () => {
@@ -199,14 +227,14 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
       stock_quantity: 3,
     };
     productA = assertSuccess(
-      await ownerA.client
+      await service
         .from('products')
         .insert({ ...product, organisation_id: orgA })
         .select('id')
         .single(),
     ).id;
     productB = assertSuccess(
-      await ownerB.client
+      await service
         .from('products')
         .insert({ ...product, organisation_id: orgB })
         .select('id')
@@ -263,7 +291,8 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
       depth_m: 1,
       height_m: 1,
     };
-    expect((await ownerA.client.from('product_variants').insert(variant)).error?.code).toBe('23503');
+    expect((await ownerA.client.from('product_variants').insert(variant)).error?.code).toBe('42501');
+    expect((await service.from('product_variants').insert(variant)).error?.code).toBe('23503');
     const foreignCustomer = await service.rpc('create_project', {
       p_org_id: orgA,
       p_actor_id: ownerA.id,
@@ -578,23 +607,26 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
 
   it('enforces catalogue prices, dimensions, stock and owner/admin write permissions', async () => {
     expect(
-      assertSuccess(
-        await salesA.client.from('products').update({ price_minor: 1 }).eq('id', productA).select('id'),
-      ),
-    ).toEqual([]);
-    expect((await salesA.client.from('products').insert({ organisation_id: orgA })).error).not.toBeNull();
+      (await salesA.client.from('products').update({ price_minor: 1 }).eq('id', productA)).error?.code,
+    ).toBe('42501');
+    expect((await salesA.client.from('products').insert({ organisation_id: orgA })).error?.code).toBe(
+      '42501',
+    );
     expect(
       (await ownerA.client.from('products').update({ price_minor: -1 }).eq('id', productA)).error?.code,
-    ).toBe('23514');
-    expect((await ownerA.client.from('products').update({ width_m: 0 }).eq('id', productA)).error?.code).toBe(
+    ).toBe('42501');
+    expect((await service.from('products').update({ price_minor: -1 }).eq('id', productA)).error?.code).toBe(
+      '23514',
+    );
+    expect((await service.from('products').update({ width_m: 0 }).eq('id', productA)).error?.code).toBe(
       '23514',
     );
     expect(
-      (await ownerA.client.from('products').update({ stock_quantity: -1 }).eq('id', productA)).error?.code,
+      (await service.from('products').update({ stock_quantity: -1 }).eq('id', productA)).error?.code,
     ).toBe('23514');
     expect(
-      (await ownerA.client.from('products').update({ organisation_id: orgB }).eq('id', productA)).error,
-    ).not.toBeNull();
+      (await service.from('products').update({ organisation_id: orgB }).eq('id', productA)).error?.code,
+    ).toBe('23514');
     expect(
       assertSuccess(await salesA.client.from('products').select('price_minor').eq('id', productA).single())
         .price_minor,
@@ -611,6 +643,22 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
       (await service.storage.from('product-assets').upload(path, png, { contentType: 'image/png' })).error,
     ).toBeNull();
     storagePaths.push(path);
+    // A trusted server's staged upload remains inaccessible until validation is registered.
+    expect((await ownerA.client.storage.from('product-assets').download(path)).error).not.toBeNull();
+    expect((await salesA.client.storage.from('product-assets').download(path)).error).not.toBeNull();
+    expect(
+      (
+        await service.from('product_assets').insert({
+          organisation_id: orgA,
+          product_id: productA,
+          path,
+          kind: 'image',
+          mime_type: 'image/png',
+          size_bytes: png.length,
+          validation: { format: 'png', widthPixels: 1, heightPixels: 1 },
+        })
+      ).error,
+    ).toBeNull();
     expect((await ownerA.client.storage.from('product-assets').download(path)).error).toBeNull();
     expect((await salesA.client.storage.from('product-assets').download(path)).error).toBeNull();
     expect((await ownerB.client.storage.from('product-assets').download(path)).error).not.toBeNull();
@@ -638,6 +686,173 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
     ).toBe('42501');
     const { rows } = await database.query("select public from storage.buckets where id = 'product-assets'");
     expect(rows).toEqual([{ public: false }]);
+  });
+
+  it('restricts atomic catalogue RPCs to verified administrators and rolls back a duplicate import', async () => {
+    const input = catalogueInput(`RPC-${randomUUID()}`);
+    const args = { p_org_id: orgA, p_actor_id: ownerA.id, p_product_id: null, p_product: input };
+    expect((await ownerA.client.rpc('catalogue_product_write', args)).error?.code).toBe('42501');
+    expect((await anonymous.rpc('catalogue_product_write', args)).error?.code).toBe('42501');
+    expect(
+      (await service.rpc('catalogue_product_write', { ...args, p_actor_id: salesA.id })).error?.code,
+    ).toBe('42501');
+    expect(
+      (await service.rpc('catalogue_product_write', { ...args, p_actor_id: ownerB.id })).error?.code,
+    ).toBe('42501');
+    const productId = await writeCatalogue(input);
+    const newInput = catalogueInput(`IMPORT-${randomUUID()}`);
+    const failed = assertSuccess(
+      await service.rpc('catalogue_import_products', {
+        p_org_id: orgA,
+        p_actor_id: ownerA.id,
+        p_file_name: 'duplicate.csv',
+        p_products: [newInput, input],
+        p_row_count: 2,
+        p_errors: [],
+      }),
+    );
+    expect(failed).toMatchObject({ status: 'failed', summary: { productCount: 0, variantCount: 0 } });
+    expect(failed.summary.errors).toHaveLength(1);
+    expect(
+      assertSuccess(
+        await service.from('products').select('id').eq('organisation_id', orgA).eq('sku', newInput.sku),
+      ),
+    ).toEqual([]);
+    expect(
+      assertSuccess(
+        await service
+          .from('product_variants')
+          .select('id')
+          .eq('organisation_id', orgA)
+          .eq('sku', newInput.variants[0].sku),
+      ),
+    ).toEqual([]);
+    expect(assertSuccess(await service.from('products').select('id').eq('id', productId))).toHaveLength(1);
+    const log = assertSuccess(
+      await ownerA.client.from('catalogue_imports').select('status,summary').eq('id', failed.id).single(),
+    );
+    expect(log.status).toBe('failed');
+    expect(log.summary.productCount).toBe(0);
+  });
+
+  it('caps retained variants and rolls back parent edits when a replacement would exceed the cap', async () => {
+    const input = catalogueInput(`CAP-${randomUUID()}`);
+    input.variants = Array.from({ length: 100 }, (_, index) => ({
+      ...input.variants[0],
+      sku: `${input.sku}-${index}`,
+    }));
+    const productId = await writeCatalogue(input);
+    const variants = assertSuccess(
+      await service.from('product_variants').select('id,sku').eq('product_id', productId),
+    );
+    expect(variants).toHaveLength(100);
+    const replacement = {
+      ...input,
+      name: 'This parent update must roll back',
+      variants: [
+        ...variants.slice(0, 99).map(({ id, sku }) => ({ ...input.variants[0], id, sku })),
+        { ...input.variants[0], sku: `${input.sku}-replacement` },
+      ],
+    };
+    const result = await service.rpc('catalogue_product_write', {
+      p_org_id: orgA,
+      p_actor_id: ownerA.id,
+      p_product_id: productId,
+      p_product: replacement,
+    });
+    expect(result.error?.code).toBe('23514');
+    expect(
+      assertSuccess(await service.from('products').select('name').eq('id', productId).single()).name,
+    ).toBe(input.name);
+    const retained = assertSuccess(
+      await service.from('product_variants').select('id,active').eq('product_id', productId),
+    );
+    expect(retained).toHaveLength(100);
+    expect(retained.every((variant) => variant.active)).toBe(true);
+  });
+
+  it('rechecks canonical catalogue objects after waiting for an in-flight catalogue edit', async () => {
+    const input = catalogueInput(`RACE-${randomUUID()}`),
+      productId = await writeCatalogue(input);
+    const variant = assertSuccess(
+      await service.from('product_variants').select('id').eq('product_id', productId).single(),
+    );
+    const empty = createDemoScene();
+    empty.objects = [];
+    empty.groups = [];
+    const bundle = await createProject(orgA, ownerA.id, null, 'Catalogue race project', empty);
+    const object: Scene['objects'][number] = {
+      id: randomUUID(),
+      sku: input.variants[0].sku,
+      variantId: variant.id,
+      name: input.name,
+      category: 'bed',
+      dimensions: input.dimensions,
+      transform: { x: 3, y: 0, z: 2.5, rotation: 0 },
+      color: input.color,
+      solid: true,
+      locks: { position: false, rotation: false, product: false },
+    };
+    const proposalScene = { ...bundle.scene.data, objects: [object] };
+    const catalogueConnection = new Client({ connectionString: databaseUrl }),
+      editorConnection = new Client({ connectionString: databaseUrl });
+    await catalogueConnection.connect();
+    await editorConnection.connect();
+    try {
+      const cataloguePid = (await catalogueConnection.query('select pg_backend_pid() as pid')).rows[0].pid;
+      const editorPid = (await editorConnection.query('select pg_backend_pid() as pid')).rows[0].pid;
+      await catalogueConnection.query('begin');
+      await catalogueConnection.query('set local role service_role');
+      const changed = {
+        ...input,
+        variants: [{ ...input.variants[0], id: variant.id, dimensions: { ...input.dimensions, width: 1.8 } }],
+      };
+      await catalogueConnection.query('select public.catalogue_product_write($1,$2,$3,$4)', [
+        orgA,
+        ownerA.id,
+        productId,
+        JSON.stringify(changed),
+      ]);
+      await editorConnection.query('begin');
+      await editorConnection.query('set local role service_role');
+      const waitingCommit = editorConnection
+        .query('select public.commit_scene($1,$2,$3,$4,$5,$6,$7)', [
+          bundle.scene.id,
+          ownerA.id,
+          0,
+          JSON.stringify(proposalScene),
+          JSON.stringify([bundle.scene.data]),
+          '[]',
+          JSON.stringify({ action: 'accept', type: 'add-object', object }),
+        ])
+        .then(
+          () => null,
+          (error: { code: string }) => error.code,
+        );
+      let blocked = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const blockers = await database.query('select pg_blocking_pids($1) as blockers', [editorPid]);
+        blocked = blockers.rows[0].blockers.includes(cataloguePid);
+        if (blocked) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(blocked).toBe(true);
+      await catalogueConnection.query('commit');
+      expect(await waitingCommit).toBe('40001');
+      const stored = assertSuccess(
+        await service.from('scenes').select('version,data').eq('id', bundle.scene.id).single(),
+      );
+      expect(stored.version).toBe(0);
+      expect(stored.data.objects).toEqual([]);
+      expect(
+        assertSuccess(await service.from('scene_versions').select('version').eq('scene_id', bundle.scene.id)),
+      ).toEqual([{ version: 0 }]);
+    } finally {
+      await catalogueConnection.query('rollback');
+      await editorConnection.query('rollback');
+      await catalogueConnection.end();
+      await editorConnection.end();
+    }
   });
 
   it('serialises an in-flight scene commit with role revocation and revokes pending invitations', async () => {

@@ -1,22 +1,31 @@
-# Architecture and milestone gates
+# Architecture
 
-## Working milestone 1: foundation and measured editor
+Next.js serves account/workspace pages, the React Konva editor and authoritative HTTP APIs. Zustand/Immer holds client editor state. Framework-independent TypeScript packages own scene contracts, geometry, layout and catalogue validation. Geometry and search contain no React, network or LLM calls.
 
-Next.js serves the UI and an authoritative scene API. The canonical scene is shared by the React Konva floor plan, pure geometry functions, and deterministic solver. Client state uses Zustand/Immer. Geometry and layout packages contain no React, network calls, or LLMs. The scene schema validates all API operations. Server-generated previews are accepted by ID and base version, not by trusting an arbitrary client scene.
+## Editor authority
 
-Flow: operation → schema validation → version check → lock check → trial geometry → candidate search → preview → explicit acceptance → revalidation → atomic local persistence. Committed versions increase monotonically. Undo/redo intentionally restore prior complete scene snapshots under the same version check. An in-process queue serialises writes.
+The operation flow is schema validation → current permission/version checks → lock checks → geometry/search → server-owned preview → explicit acceptance → recomputation and validation → transaction. The client cannot commit a replacement scene. Scene schema v2 adds measured room openings and rigid groups; strictly recognised v1 scenes migrate without changing identities, dimensions, transforms or locks.
 
-The file adapter is a working local development substitute for the future PostgreSQL transaction layer. It provides no accounts or tenant security and must only contain synthetic data. Next.js runs as one process with one writable data directory. The server remains the authority even when UI controls disable an action.
+`EditorService` uses a persistence interface. Authenticated project routes provide a request-scoped Supabase adapter; `/demo` uses an atomic local file adapter. Both share geometry and operation rules. PostgreSQL commits lock the organisation and scene, recheck the actor's current edit permission, compare the expected version, append a scene version and operation, update undo/redo state, and invalidate obsolete previews. Adding furniture repeats catalogue identity/dimension/availability checks under the same organisation lock used by catalogue writes.
 
-Shared UI uses small native accessible primitives with Tailwind available and custom styling. Full shadcn/ui composition, Three.js rendering, catalogue and pricing packages are deferred until their actual workflows are implemented; no empty packages or inactive product controls are included.
+Undo/redo restore complete validated snapshots while advancing the committed version. Each direction retains up to 100 snapshots. The revision endpoint returns the latest 100 committed snapshots. PostgreSQL versions and operations persist separately from the undo stacks. Saved project previews are actor-scoped and expire after 15 minutes; the local demo's previews live in one process.
 
-## Subsequent gates
+## Accounts and tenant data
 
-1. Foundation/editor: strict TypeScript, documented contracts, CI, geometry properties, running editor, server lock/version tests and browser acceptance.
-2. Multi-tenant foundation: Supabase Auth, organisations/members, role checks, migrations/RLS and real cross-tenant database tests. Move file persistence into transactional repositories without changing domain APIs.
-3. Real catalogue/3D: validated products/variants/assets, imports, shared transforms in React Three Fiber, proxy disclosure and tests comparing both views.
-4. AI/budget: provider abstraction, schema-validated intentions only, authoritative catalogues and integer minor-unit calculations.
-5. Sales: immutable issued price snapshots, PDFs, approval/revision workflow and restricted customer links.
-6. Commercial deployment: durable jobs, signed Stripe webhooks, subscription limits, monitoring, retention, backups and pilot rollout.
+Supabase Auth verifies users. Server routes use request-scoped SSR clients and HttpOnly, SameSite=Lax session cookies. Session checks use `auth.getUser()`. Hosted connections require HTTPS, and cookie security depends on the trusted reverse proxy's HTTPS header. The service-role client and provider keys are server-only.
 
-Each gate needs working acceptance tests and code review before major work proceeds. No production-readiness claim follows from the local milestone. See ROADMAP for immediate tickets.
+Organisation memberships define owner, admin, salesperson, designer and customer roles. RLS and explicit SQL grants restrict database reads and writes; composite foreign keys prevent cross-organisation relationships. Sensitive RPCs repeat authority checks after locking the organisation. Customer accounts see only explicitly shared projects, with independent view/edit grants. Customer contact records are business data and do not create account permissions.
+
+## Catalogue and projects
+
+Products and variants hold retailer-entered identities, dimensions, active/availability flags, stock, lead time and safe integer minor-unit prices. Owners/admins make atomic product/variant writes through service-only checked functions. Omitted variants and archived products retain their identities for historical scenes. Bounded CSV imports validate the whole file and insert all rows or none; completed/failed summaries are persisted.
+
+Images and self-contained GLB/glTF files are validated before private storage. Asset metadata is registered only after storage succeeds and current authority/dimensions are checked again. App asset URLs authenticate every request; customer delivery is limited to assets belonging to variants already selected in an authorised project. The browser receives no provider credentials or unrestricted storage URL.
+
+New projects capture customer, budget, currency, style, room type and measured room dimensions. Each project currently has one room and scene. Furniture additions use real variant IDs and immutable scene snapshots of their measured metadata. The project product endpoint resolves current prices, reports stale selections and sums integer minor units. It does not issue a quotation or reserve inventory.
+
+## Implemented milestones and later gates
+
+The first three milestones cover measured editor rules, accounts/tenant persistence, and catalogue/customer/project workflows. The local test stack runs the actual PostgreSQL/Auth/REST/Storage services; CI applies migrations and runs database security checks alongside unit, build and browser gates.
+
+Later milestones add a shared 3D view, schema-validated AI intentions, complete budget/tax rules, immutable issued proposals/PDFs, billing and durable jobs. Production rollout additionally needs hosted configuration validation, rate limits, monitoring, backups/restores, retention and physical retailer acceptance. See [roadmap](ROADMAP.md) and [limitations](KNOWN_LIMITATIONS.md).

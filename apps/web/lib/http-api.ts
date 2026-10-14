@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { ServiceError } from './editor-service';
+import { ServiceError, isServiceError } from './editor-service';
 
 export function assertSameOrigin(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -44,7 +44,7 @@ export async function api<T>(task: () => Promise<T>, status = 200) {
   try {
     return NextResponse.json(await task(), { status, headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
-    if (error instanceof ServiceError)
+    if (isServiceError(error))
       return NextResponse.json(
         { error: error.message, details: error.details },
         { status: error.status, headers: { 'Cache-Control': 'no-store' } },

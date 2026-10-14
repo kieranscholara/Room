@@ -13,6 +13,8 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
+      "@roomsell/catalogue": ["packages/catalogue/src/index.ts"],
+      "@roomsell/catalogue/assets": ["packages/catalogue/src/assets.ts"],
       "@roomsell/scene-core": ["packages/scene-core/src/index.ts"],
       "@roomsell/geometry": ["packages/geometry/src/index.ts"],
       "@roomsell/layout-engine": ["packages/layout-engine/src/index.ts"],

@@ -1,20 +1,36 @@
-# First milestone review
+# First three milestones: implementation review
 
-Review performed against the repository's geometry, lock and acceptance rules. This is a self-review, not an independent security or production audit.
+This records implementation boundaries and reviewed issues. It is a development self-review with separate agent review and automated tests, not an independent production-security audit. Actual check results belong in [VALIDATION.md](VALIDATION.md).
 
-## Correctness boundaries reviewed
+## Geometry and edits
 
-- Canonical scene validation rejects unknown fields, invalid IDs/relationships, nonfinite transforms and invalid zones. Layout requests require confirmed room measurements.
-- Geometry uses full rotated footprints rather than unrotated bounding boxes. Rugs may overlap furniture but every object obeys room/ceiling/architecture constraints. Door safety uses a conservative rectangular exclusion zone.
-- The requested object cannot move/rotate through its locks. Fixed locked objects stay exact; rotation-only locks retain exact radians during candidate generation. Product identities and dimensions have no mutation path.
-- Preview results are separated from persistence. Acceptance recomputes the original server-owned operation. Version checks happen inside the serial write queue before any mutation. Returned proposal objects cannot be used to inject changed geometry.
-- Undo/redo intentionally restore entire snapshots, including prior locks, and always advance the committed version. A branch clears redo history.
-- Persistence validates saved scenes/history, uses atomic file replacement and never reports a write as successful before it completes. The adapter remains explicitly single-process/local-only.
+Strict scene v2 contracts and lossless v1 migration preserve identities, dimensions and transforms. Rotated SAT footprints enforce boundaries, ceiling, conservative openings and explicit exclusions. Rugs may overlap solid furniture but must fit architecture. Independent locks and rigid groups stay authoritative during manual and automatic edits.
 
-## Findings resolved during validation
+Previews remain separate from saved state. Acceptance recomputes the original server-owned operation, then validates scene/locks before commit. Undo/redo restore complete snapshots under the current version and create another version. Candidate/search caps bound work and are documented without claiming global infeasibility or optimality.
 
-Browser hydration required explicit loopback development-origin configuration in Next.js 16.4. Browser POST origin checks now compare the actual HTTP Host rather than Next.js's internal bind address. The negative acceptance assertion is scoped to the editor's alert, avoiding Next.js's route announcer. Labels remain upright when furniture rotates, and the decorative inspector illustration is labelled illustrative rather than dimensionally accurate.
+## Account and data boundary
 
-## Deferred risks and gates
+Server routes verify provider sessions and current membership. RLS/explicit grants and composite tenant foreign keys constrain reads and relations. Checked functions serialise sensitive writes on the organisation before rechecking authority. Last-owner protections, invitation recipient/expiry/replay checks, inviter demotion/removal revocation, project grants and current actor checks close the reviewed escalation paths.
 
-No authentication, production multi-tenant/RLS testing, database transactions, real catalogue, quotation or payment workflow is claimed. Grid-search limits may miss feasible layouts. Nested/rigid groups, circulation preferences and larger-scene performance need a separate bounded editor enhancement. The next major gate is Supabase Auth plus organisation/RLS isolation, with actual cross-tenant database tests.
+Transactional commits compare the current scene version and append immutable version/operation rows. Direct authenticated scene, catalogue, membership and validated-asset writes are revoked. Service-role clients remain a trusted server boundary; SQL identity/authority checks supplement the application's complete domain/geometry validation.
+
+## Catalogue and assets
+
+Product/variant writes and insert-only imports are atomic. Validation/conflict failures keep the catalogue unchanged and persist an import summary. Real IDs, dimensions and availability are checked at scene preview, acceptance and inside the commit transaction under the catalogue write lock.
+
+Assets use content identification, full image decode, Khronos structural checks and actual rendered model bounds. External resources are rejected without fetching. Registration repeats current authority/dimensions, and later dimension edits invalidate model assets. Private delivery checks staff membership or authorised selected-project relationships on every request. Metadata-first removal protects access when storage cleanup fails.
+
+## Issues resolved during implementation
+
+- Browser Origin checks use the HTTP Host instead of Next.js's internal bind address.
+- Account forms wait for hydration before allowing submission; alert assertions avoid Next's route announcer.
+- A Next.js development reload loop uses the supported Webpack dev option; normal production builds remain separate.
+- Local service health probes use a dedicated Docker client profile for loopback rather than bypassing health checks/TLS.
+- Local Supabase status is captured by atomic rename, avoiding partial reads during migration/readiness commands.
+- Role revocation and catalogue changes share organisation-lock ordering with scene commits.
+- Archived variant identities count towards the product's 100-variant bound, preserving representable API DTOs.
+- Decimal money entry/display uses the currency exponent rather than assuming two fractional digits.
+
+## Remaining release gates
+
+Hosted email confirmation and HTTPS proxy/cookies, production limits/monitoring, backup/restore, retention/export/deletion and representative retailer/device validation remain open. Uploaded models do not yet render in 3D. Live selected prices are not immutable quotations. Inventory is checked without reservation. Large jobs, sales approvals, billing and AI have no implementation claim in this milestone.

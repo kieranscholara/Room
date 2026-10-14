@@ -34,7 +34,13 @@ interface Store {
 }
 export const useEditor = create<Store>()(
   immer((set, get) => {
-    const state = (data: EditorState) =>
+    // Navigation supersedes requests even while another operation is busy.
+    // Every response belongs to the endpoint and generation that sent it.
+    let generation = 0;
+    type Scope = { generation: number; endpoint: string };
+    const current = (scope: Scope) => scope.generation === generation && scope.endpoint === get().endpoint;
+    const state = (scope: Scope, data: EditorState) => {
+      if (!current(scope)) return;
       set((s) => {
         s.scene = data.scene;
         s.canUndo = data.canUndo;
@@ -42,23 +48,30 @@ export const useEditor = create<Store>()(
         s.proposal = null;
         s.error = null;
       });
-    async function run(task: () => Promise<void>) {
+    };
+    async function scopedTask(scope: Scope, task: (scope: Scope) => Promise<void>) {
+      try {
+        await task(scope);
+      } catch (error) {
+        if (current(scope))
+          set((s) => {
+            s.error = error instanceof Error ? error.message : 'Unable to update the room.';
+          });
+      } finally {
+        if (current(scope))
+          set((s) => {
+            s.busy = false;
+          });
+      }
+    }
+    async function run(task: (scope: Scope) => Promise<void>) {
       if (get().busy) return;
+      const scope = { generation, endpoint: get().endpoint };
       set((s) => {
         s.busy = true;
         s.error = null;
       });
-      try {
-        await task();
-      } catch (error) {
-        set((s) => {
-          s.error = error instanceof Error ? error.message : 'Unable to update the room.';
-        });
-      } finally {
-        set((s) => {
-          s.busy = false;
-        });
-      }
+      await scopedTask(scope, task);
     }
     return {
       endpoint: '/api/scene',
@@ -70,17 +83,22 @@ export const useEditor = create<Store>()(
       canUndo: false,
       canRedo: false,
       mode: 'smart',
-      load: (endpoint) =>
-        run(async () => {
-          if (endpoint && endpoint !== get().endpoint)
-            set((s) => {
-              s.endpoint = endpoint;
-              s.scene = null;
-              s.proposal = null;
-              s.selectedId = '';
-            });
-          state(await api(get().endpoint));
-        }),
+      load: async (endpoint = get().endpoint) => {
+        const scope = { generation: ++generation, endpoint };
+        set((s) => {
+          if (endpoint !== s.endpoint) {
+            s.scene = null;
+            s.proposal = null;
+            s.selectedId = '';
+            s.canUndo = false;
+            s.canRedo = false;
+          }
+          s.endpoint = endpoint;
+          s.busy = true;
+          s.error = null;
+        });
+        await scopedTask(scope, async () => state(scope, await api(scope.endpoint)));
+      },
       select: (id) =>
         set((s) => {
           s.selectedId = id;
@@ -90,17 +108,19 @@ export const useEditor = create<Store>()(
           s.mode = mode;
         }),
       preview: (operation, immediate = false) =>
-        run(async () => {
+        run(async (scope) => {
           const scene = get().scene;
           if (!scene) return;
-          const { proposal } = (await api(get().endpoint, {
+          const { proposal } = (await api(scope.endpoint, {
             action: 'preview',
             expectedVersion: scene.version,
             operation,
           })) as { proposal: Proposal };
+          if (!current(scope)) return;
           if (immediate)
             state(
-              await api(get().endpoint, {
+              scope,
+              await api(scope.endpoint, {
                 action: 'accept',
                 expectedVersion: scene.version,
                 proposalId: proposal.id,
@@ -112,11 +132,12 @@ export const useEditor = create<Store>()(
             });
         }),
       accept: () =>
-        run(async () => {
+        run(async (scope) => {
           const { scene, proposal } = get();
           if (scene && proposal)
             state(
-              await api(get().endpoint, {
+              scope,
+              await api(scope.endpoint, {
                 action: 'accept',
                 expectedVersion: scene.version,
                 proposalId: proposal.id,
@@ -129,9 +150,9 @@ export const useEditor = create<Store>()(
           s.error = null;
         }),
       history: (action) =>
-        run(async () => {
+        run(async (scope) => {
           const scene = get().scene;
-          if (scene) state(await api(get().endpoint, { action, expectedVersion: scene.version }));
+          if (scene) state(scope, await api(scope.endpoint, { action, expectedVersion: scene.version }));
         }),
     };
   }),

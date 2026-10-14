@@ -9,7 +9,10 @@ export function safeReturnTo(value?: string) {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return '/workspace';
   try {
     const url = new URL(value, 'https://roomsell.invalid');
-    if (url.origin !== 'https://roomsell.invalid' || !['/workspace', '/join'].includes(url.pathname))
+    if (
+      url.origin !== 'https://roomsell.invalid' ||
+      (!['/workspace', '/join'].includes(url.pathname) && !/^\/projects\/[0-9a-f-]{36}$/i.test(url.pathname))
+    )
       return '/workspace';
     return `${url.pathname}${url.search}`;
   } catch {

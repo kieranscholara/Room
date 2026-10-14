@@ -8,11 +8,11 @@ export const credentialsSchema = z
       .email()
       .max(254)
       .transform((e) => e.toLowerCase()),
-    password: z.string().min(12).max(128),
+    password: z.string().min(1).max(128),
   })
   .strict();
 export const signupSchema = credentialsSchema
-  .extend({ displayName: z.string().trim().min(1).max(100) })
+  .extend({ displayName: z.string().trim().min(1).max(100), password: z.string().min(12).max(128) })
   .strict();
 export const organisationSchema = z.object({ name: z.string().trim().min(2).max(100), currency }).strict();
 export const roleChangeSchema = z.object({ userId: uuid, role: z.enum(roles) }).strict();

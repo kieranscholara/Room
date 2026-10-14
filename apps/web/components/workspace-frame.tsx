@@ -28,6 +28,7 @@ export interface WorkspaceContext {
 export interface WorkspacePanel {
   id: string;
   label: string;
+  roles?: OrganisationRole[];
   render(context: WorkspaceContext): ReactNode;
 }
 export class AccountRequestError extends Error {
@@ -127,7 +128,10 @@ export function WorkspaceFrame({ panels = [] }: { panels?: WorkspacePanel[] }) {
         refreshOrganisations,
       }
     : null;
-  const extraPanel = panels.find((item) => item.id === panel);
+  const visiblePanels = panels.filter(
+    (item) => !item.roles || (organisation && item.roles.includes(organisation.role)),
+  );
+  const extraPanel = visiblePanels.find((item) => item.id === panel);
   return (
     <div className="business-shell">
       <header className="business-header">
@@ -191,7 +195,7 @@ export function WorkspaceFrame({ panels = [] }: { panels?: WorkspacePanel[] }) {
               <Users size={16} />
               Team
             </button>
-            {panels.map((item) => (
+            {visiblePanels.map((item) => (
               <button
                 key={item.id}
                 disabled={!organisation}

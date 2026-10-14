@@ -1,0 +1,15 @@
+{
+  "name": "@roomsell/catalogue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./assets": "./src/assets.ts"
+  },
+  "dependencies": {
+    "gltf-validator": "^2.0.0-dev.3.10",
+    "sharp": "^0.35.5",
+    "zod": "^4.1.0"
+  }
+}

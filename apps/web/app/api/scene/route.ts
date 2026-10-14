@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { service } from '../../../lib/local-persistence';
-import { ServiceError } from '../../../lib/editor-service';
+import { isServiceError } from '../../../lib/editor-service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     return NextResponse.json(await service().read(), { headers: { 'Cache-Control': 'no-store' } });
-  } catch {
+  } catch (error) {
+    if (isServiceError(error))
+      return NextResponse.json({ error: error.message, details: error.details }, { status: error.status });
     return NextResponse.json(
       { error: 'Unable to read the local room. Check the server log and local data file.' },
       { status: 500 },
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (body.length > 16_384) return NextResponse.json({ error: 'Request is too large.' }, { status: 413 });
     return NextResponse.json(await service().execute(JSON.parse(body)));
   } catch (error) {
-    if (error instanceof ServiceError)
+    if (isServiceError(error))
       return NextResponse.json({ error: error.message, details: error.details }, { status: error.status });
     if (error instanceof ZodError || error instanceof SyntaxError)
       return NextResponse.json(

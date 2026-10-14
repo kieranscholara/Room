@@ -8,6 +8,7 @@
     "start": "next start --hostname 0.0.0.0"
   },
   "dependencies": {
+    "@roomsell/catalogue": "*",
     "@roomsell/geometry": "*",
     "@roomsell/layout-engine": "*",
     "@roomsell/scene-core": "*",

@@ -28,7 +28,9 @@ export interface SavedProposal {
   proposal: Proposal;
   operation: Request & { action: 'preview' };
 }
+const serviceErrorBrand = Symbol.for('roomsell.service-error');
 export class ServiceError extends Error {
+  readonly [serviceErrorBrand] = true;
   constructor(
     public status: number,
     message: string,
@@ -36,6 +38,19 @@ export class ServiceError extends Error {
   ) {
     super(message);
   }
+}
+/** A cached service can outlive its route module during development reloads. */
+export function isServiceError(value: unknown): value is ServiceError {
+  if (!(value instanceof Error)) return false;
+  const error = value as Partial<ServiceError>;
+  return (
+    error[serviceErrorBrand] === true &&
+    Number.isInteger(error.status) &&
+    typeof error.status === 'number' &&
+    error.status >= 400 &&
+    error.status <= 599 &&
+    typeof error.message === 'string'
+  );
 }
 export class EditorService {
   private queue: Promise<unknown> = Promise.resolve();

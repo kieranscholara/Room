@@ -50,6 +50,7 @@ export async function validateCatalogueOperation(context: ProjectContext, operat
     !variant.active ||
     !product.active ||
     variant.availability === 'out_of_stock' ||
+    (variant.availability === 'in_stock' && Number(variant.stock_quantity) <= 0) ||
     product.availability === 'out_of_stock'
   )
     throw new ServiceError(422, 'Choose an available product from this organisation’s catalogue.');
@@ -147,16 +148,14 @@ class SupabasePersistence implements Persistence {
         429,
         'Too many pending previews. Accept a preview or wait for older previews to expire.',
       );
-    const result = await this.admin
-      .from('scene_proposals')
-      .insert({
-        id: saved.proposal.id,
-        scene_id: this.sceneId,
-        organisation_id: this.organisationId,
-        actor_id: this.context.user.id,
-        base_version: saved.proposal.baseVersion,
-        payload: saved,
-      });
+    const result = await this.admin.from('scene_proposals').insert({
+      id: saved.proposal.id,
+      scene_id: this.sceneId,
+      organisation_id: this.organisationId,
+      actor_id: this.context.user.id,
+      base_version: saved.proposal.baseVersion,
+      payload: saved,
+    });
     databaseError(result.error);
   }
   async loadProposal(id: string): Promise<SavedProposal | null> {

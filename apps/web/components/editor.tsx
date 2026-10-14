@@ -363,7 +363,7 @@ export function Editor({
                 <BedDouble size={23} />
               </span>
               <div>
-                <strong>Rectangular bedroom</strong>
+                <strong>{projectId ? 'Measured rectangular room' : 'Rectangular bedroom'}</strong>
                 <small>
                   {scene
                     ? `${scene.room.width} × ${scene.room.depth} m · ${scene.room.width * scene.room.depth} m²`

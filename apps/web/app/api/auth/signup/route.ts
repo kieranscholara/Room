@@ -10,7 +10,10 @@ export async function POST(request: NextRequest) {
     const { data, error } = await client.auth.signUp({
       email: body.email,
       password: body.password,
-      options: { data: { displayName: body.displayName }, emailRedirectTo: `${request.headers.get('origin') || `${request.nextUrl.protocol}//${request.headers.get('host')}`}/auth/callback` },
+      options: {
+        data: { displayName: body.displayName },
+        emailRedirectTo: `${request.headers.get('origin') || `${request.nextUrl.protocol}//${request.headers.get('host')}`}/auth/callback`,
+      },
     });
     if (error)
       throw new ServiceError(
