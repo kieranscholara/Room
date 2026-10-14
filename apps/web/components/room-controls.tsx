@@ -376,10 +376,10 @@ function ZoneControls({ room, disabled }: { room: Room; disabled: boolean }) {
   );
 }
 
-export function RoomControls() {
+export function RoomControls({ readOnly = false }: { readOnly?: boolean }) {
   const { scene, proposal, busy } = useEditor();
   if (!scene) return null;
-  const disabled = busy || Boolean(proposal);
+  const disabled = readOnly || busy || Boolean(proposal);
   return (
     <div className="room-controls">
       <details className="editor-details">

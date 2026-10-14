@@ -7,7 +7,13 @@ import { measurementGuides, openingZones, rotate, snapToWalls } from '@roomsell/
 import type { Scene, SceneObject } from '@roomsell/scene-core';
 import { useEditor } from '../lib/editor-store';
 
-export default function FloorPlan({ comparing = null }: { comparing?: Scene | null }) {
+export default function FloorPlan({
+  comparing = null,
+  readOnly = false,
+}: {
+  comparing?: Scene | null;
+  readOnly?: boolean;
+}) {
   const { scene: saved, proposal, selectedId, select, preview, mode, busy } = useEditor();
   const scene = proposal?.scene ?? saved;
   const container = useRef<HTMLDivElement>(null);
@@ -176,7 +182,7 @@ export default function FloorPlan({ comparing = null }: { comparing?: Scene | nu
                   x={object.transform.x * scale}
                   y={object.transform.z * scale}
                   rotation={(-object.transform.rotation * 180) / Math.PI}
-                  draggable={!positionLocked && !pan && !busy && !proposal}
+                  draggable={!readOnly && !positionLocked && !pan && !busy && !proposal}
                   onClick={() => select(object.id)}
                   onTap={() => select(object.id)}
                   onDragStart={() => {

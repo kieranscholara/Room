@@ -33,7 +33,7 @@ const FloorPlan = dynamic(() => import('./floor-plan'), {
   ssr: false,
   loading: () => <div className="canvas-loading">Preparing measured floor plan…</div>,
 });
-function Properties({ object, demo }: { object: SceneObject; demo: boolean }) {
+function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boolean; readOnly: boolean }) {
   const { scene, proposal, busy, mode, preview } = useEditor();
   const [x, setX] = useState(String(object.transform.x));
   const [z, setZ] = useState(String(object.transform.z));
@@ -43,7 +43,7 @@ function Properties({ object, demo }: { object: SceneObject; demo: boolean }) {
     setZ(String(object.transform.z));
     setAngle(String(Math.round((object.transform.rotation * 180) / Math.PI)));
   }, [object, scene?.version]);
-  const disabled = busy || Boolean(proposal);
+  const disabled = readOnly || busy || Boolean(proposal);
   const group = scene?.groups.find((candidate) => candidate.objectIds.includes(object.id));
   const members = scene?.objects.filter((candidate) => group?.objectIds.includes(candidate.id)) ?? [];
   const positionLocked =
@@ -246,12 +246,14 @@ interface EditorProps {
   endpoint?: string;
   title?: string;
   subtitle?: string;
+  readOnly?: boolean;
 }
 export function Editor({
   projectId,
   endpoint = projectId ? `/api/projects/${encodeURIComponent(projectId)}/scene` : '/api/scene',
   title,
   subtitle,
+  readOnly = false,
 }: EditorProps = {}) {
   const {
     scene,
@@ -287,7 +289,7 @@ export function Editor({
       if (event.key === 'Escape' && !busy) cancel();
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
-        if (!proposal && !busy) {
+        if (!proposal && !busy && !readOnly) {
           if (event.shiftKey && canRedo) void history('redo');
           else if (!event.shiftKey && canUndo) void history('undo');
         }
@@ -295,7 +297,7 @@ export function Editor({
     }
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [history, cancel, busy, proposal, canRedo, canUndo]);
+  }, [history, cancel, busy, proposal, canRedo, canUndo, readOnly]);
   const shown = proposal?.scene ?? scene;
   const selected = shown?.objects.find((o) => o.id === selectedId);
   return (
@@ -376,8 +378,8 @@ export function Editor({
                 : 'Measurements need confirmation'}
               {!projectId && ' · demo'}
             </div>
-            <RoomControls />
-            <GroupControls />
+            <RoomControls readOnly={readOnly} />
+            <GroupControls readOnly={readOnly} />
             <div className="section-label">
               FURNITURE <span>{shown?.objects.length ?? 0} items</span>
             </div>
@@ -439,7 +441,7 @@ export function Editor({
                   variant="ghost"
                   aria-label="Undo"
                   title="Undo (Ctrl+Z)"
-                  disabled={!canUndo || busy || Boolean(proposal)}
+                  disabled={readOnly || !canUndo || busy || Boolean(proposal)}
                   onClick={() => void history('undo')}
                 >
                   <Undo2 size={17} />
@@ -448,7 +450,7 @@ export function Editor({
                   variant="ghost"
                   aria-label="Redo"
                   title="Redo (Ctrl+Shift+Z)"
-                  disabled={!canRedo || busy || Boolean(proposal)}
+                  disabled={readOnly || !canRedo || busy || Boolean(proposal)}
                   onClick={() => void history('redo')}
                 >
                   <Redo2 size={17} />
@@ -461,7 +463,7 @@ export function Editor({
                 {error && <Button onClick={() => void load()}>Retry</Button>}
               </div>
             ) : (
-              <FloorPlan comparing={comparing} />
+              <FloorPlan comparing={comparing} readOnly={readOnly} />
             )}
             <div className="mode-bar">
               <div>
@@ -470,7 +472,7 @@ export function Editor({
                   <button
                     aria-pressed={mode === 'manual'}
                     className={mode === 'manual' ? 'active' : ''}
-                    disabled={busy || Boolean(proposal)}
+                    disabled={readOnly || busy || Boolean(proposal)}
                     onClick={() => setMode('manual')}
                   >
                     <MousePointer2 size={14} /> Manual
@@ -478,7 +480,7 @@ export function Editor({
                   <button
                     aria-pressed={mode === 'smart'}
                     className={mode === 'smart' ? 'active' : ''}
-                    disabled={busy || Boolean(proposal)}
+                    disabled={readOnly || busy || Boolean(proposal)}
                     onClick={() => setMode('smart')}
                   >
                     <Sparkles size={14} /> Smart Rearrange
@@ -486,9 +488,11 @@ export function Editor({
                 </div>
               </div>
               <p>
-                {mode === 'smart'
-                  ? 'Move a piece. We’ll find room for the others.'
-                  : 'Move the selected piece or its rigid group. Invalid moves are rejected.'}
+                {readOnly
+                  ? 'View-only project. You can inspect the plan and its saved revisions.'
+                  : mode === 'smart'
+                    ? 'Move a piece. We’ll find room for the others.'
+                    : 'Move the selected piece or its rigid group. Invalid moves are rejected.'}
                 <small>Geometry first. Every lock respected.</small>
               </p>
             </div>
@@ -543,7 +547,7 @@ export function Editor({
               <MousePointer2 size={16} />
             </div>
             {selected ? (
-              <Properties object={selected} demo={!projectId} />
+              <Properties object={selected} demo={!projectId} readOnly={readOnly} />
             ) : (
               <p className="empty-selection">
                 Select furniture in the plan or list to inspect its position and locks.

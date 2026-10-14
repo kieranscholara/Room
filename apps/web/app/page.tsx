@@ -1,4 +1,4 @@
-import { Editor } from '../components/editor';
+import { redirect } from 'next/navigation';
 export default function Page() {
-  return <Editor />;
+  redirect('/workspace');
 }

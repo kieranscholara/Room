@@ -20,16 +20,21 @@
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "setup:local": "node scripts/local-stack.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test:integration": "node scripts/test-integration.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "@playwright/test": "^1.56.0",
     "@types/node": "^22.18.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "eslint": "^9.39.0",
     "fast-check": "^4.3.0",
+    "pg": "^8.23.1",
     "prettier": "^3.9.10",
     "supabase": "^2.120.0",
     "typescript": "^5.9.3",

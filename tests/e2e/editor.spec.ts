@@ -6,7 +6,7 @@ test.beforeAll(async () => {
 test('flagship lock, move, rearrange, preview, persist, undo/redo workflow', async ({ page, request }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/');
+  await page.goto('/demo');
   await expect(page.getByRole('heading', { name: 'The calm bedroom' })).toBeVisible();
   await expect(page.locator('canvas')).toHaveCount(1);
   const initial = (await (await request.get('/api/scene')).json()).scene;
@@ -57,7 +57,7 @@ test('flagship lock, move, rearrange, preview, persist, undo/redo workflow', asy
 });
 test('tablet controls are usable and preview can be discarded', async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 1180 });
-  await page.goto('/');
+  await page.goto('/demo');
   await expect(page.locator('canvas')).toHaveCount(1);
   await page.getByTestId('select-rug').click();
   await page.getByRole('button', { name: 'Manual', exact: true }).click();
@@ -69,7 +69,7 @@ test('tablet controls are usable and preview can be discarded', async ({ page })
 });
 
 test('canvas drag creates a checked proposal and preserves locked furniture', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('/demo');
   await expect(page.locator('canvas')).toHaveCount(1);
   const before = (await (await request.get('/api/scene')).json()).scene;
   const bed = before.objects.find((o: { id: string }) => o.id === 'bed');
@@ -132,7 +132,7 @@ test('HTTP boundary rejects invalid, cross-origin, locked and stale writes', asy
 test.describe('touch interaction', () => {
   test.use({ hasTouch: true, viewport: { width: 820, height: 1180 } });
   test('touch dragging changes only a preview until explicitly accepted', async ({ page, request }) => {
-    await page.goto('/');
+    await page.goto('/demo');
     await expect(page.locator('canvas')).toHaveCount(1);
     const before = (await (await request.get('/api/scene')).json()).scene;
     const bed = before.objects.find((o: { id: string }) => o.id === 'bed');

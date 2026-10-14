@@ -4,12 +4,12 @@ import { Layers, LockKeyhole, Trash2, Unlock } from 'lucide-react';
 import { Button, Field } from '@roomsell/ui';
 import { useEditor } from '../lib/editor-store';
 
-export function GroupControls() {
+export function GroupControls({ readOnly = false }: { readOnly?: boolean }) {
   const { scene, busy, proposal, preview } = useEditor();
   const [name, setName] = useState('');
   const [ids, setIds] = useState<string[]>([]);
   if (!scene) return null;
-  const disabled = busy || Boolean(proposal);
+  const disabled = readOnly || busy || Boolean(proposal);
   const assigned = new Set(scene.groups.flatMap((group) => group.objectIds));
   return (
     <details className="editor-details group-controls">
