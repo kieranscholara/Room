@@ -1,4 +1,5 @@
 import type { Conflict, Room, Scene, SceneObject, Transform } from '@roomsell/scene-core';
+export * from './render-contract';
 
 export interface Point {
   x: number;

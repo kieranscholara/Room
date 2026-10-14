@@ -27,11 +27,16 @@ import { measurementGuides, snapToWalls } from '@roomsell/geometry';
 import { RoomControls } from './room-controls';
 import { GroupControls } from './group-controls';
 import { RevisionControls } from './revision-controls';
+import { SceneViewControls, type SceneView } from './scene-view-controls';
 import { useEditor } from '../lib/editor-store';
 
 const FloorPlan = dynamic(() => import('./floor-plan'), {
   ssr: false,
   loading: () => <div className="canvas-loading">Preparing measured floor plan…</div>,
+});
+const RoomViewer3D = dynamic(() => import('./room-viewer-3d'), {
+  ssr: false,
+  loading: () => <div className="canvas-loading">Preparing measured 3D room…</div>,
 });
 function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boolean; readOnly: boolean }) {
   const { scene, proposal, busy, mode, preview } = useEditor();
@@ -272,6 +277,7 @@ export function Editor({
     history,
   } = useEditor();
   const [savedMessage, setSavedMessage] = useState('');
+  const [view, setView] = useState<SceneView>('2d');
   const [comparing, setComparing] = useState<Scene | null>(null);
   useEffect(() => {
     setComparing(null);
@@ -431,11 +437,13 @@ export function Editor({
           </aside>
           <section className="canvas-panel panel" aria-label="Room editor">
             <div className="canvas-toolbar">
-              <div className="view-tab">
-                <Grid2X2 size={15} /> 2D floor plan
-              </div>
+              <SceneViewControls view={view} onChange={setView} />
               <span className="toolbar-divider" />
-              <span className="toolbar-hint">Drag to explore · preview before saving</span>
+              <span className="toolbar-hint">
+                {view === '2d'
+                  ? 'Drag to explore · preview before saving'
+                  : 'Orbit to inspect · edit with the placement controls'}
+              </span>
               <div className="history-controls">
                 <Button
                   variant="ghost"
@@ -462,6 +470,8 @@ export function Editor({
                 {error || 'Loading your measured room…'}
                 {error && <Button onClick={() => void load()}>Retry</Button>}
               </div>
+            ) : view === '3d' ? (
+              <RoomViewer3D projectId={projectId} comparing={comparing} onUnavailable={() => setView('2d')} />
             ) : (
               <FloorPlan comparing={comparing} readOnly={readOnly} />
             )}

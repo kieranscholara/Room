@@ -1,0 +1,118 @@
+.scene-view-controls {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.scene-view-controls button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #646f67;
+  border-radius: 6px;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.scene-view-controls button[aria-pressed='true'] {
+  border-color: #b6cfc1;
+  color: #24564b;
+  background: #f0f7f2;
+}
+.scene-view-controls button:focus-visible,
+.room-3d-object:focus-visible {
+  outline: 2px solid #24564b;
+  outline-offset: 2px;
+}
+.room-3d-viewer {
+  position: relative;
+  background: #f6f4ed;
+}
+.room-3d-canvas {
+  position: relative;
+  height: 580px;
+  touch-action: none;
+}
+.room-3d-canvas canvas {
+  display: block;
+}
+.room-3d-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid #e7e4dc;
+  padding: 9px 14px;
+  font-size: 11px;
+  color: #58665e;
+}
+.room-3d-controls span {
+  flex: 1;
+  min-width: 160px;
+}
+.room-3d-status {
+  padding: 10px 14px;
+  border-top: 1px solid #e7e4dc;
+  font-size: 11px;
+  color: #54675c;
+}
+.room-3d-status p {
+  margin: 0 0 5px;
+  line-height: 1.5;
+}
+.room-3d-objects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.room-3d-object {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  gap: 3px;
+  border: 1px solid #d6ded3;
+  background: white;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: #344e40;
+  font: inherit;
+  cursor: pointer;
+}
+.room-3d-object[aria-pressed='true'] {
+  border-color: #24564b;
+  background: #edf5ef;
+}
+.room-3d-object small {
+  max-width: 210px;
+  color: #697466;
+  font-size: 10px;
+}
+.room-3d-fallback {
+  min-height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 30px;
+  gap: 12px;
+  text-align: center;
+}
+.room-3d-fallback p {
+  max-width: 370px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+@media (max-width: 800px) {
+  .scene-view-controls button {
+    font-size: 9px;
+    padding: 7px 6px;
+  }
+  .room-3d-canvas {
+    height: 440px;
+  }
+}

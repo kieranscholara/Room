@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 const config: NextConfig = {
   transpilePackages: [
     '@roomsell/catalogue',
+    '@roomsell/pricing',
+    '@roomsell/inventory',
     '@roomsell/scene-core',
     '@roomsell/geometry',
     '@roomsell/layout-engine',

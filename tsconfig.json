@@ -15,6 +15,9 @@
     "paths": {
       "@roomsell/catalogue": ["packages/catalogue/src/index.ts"],
       "@roomsell/catalogue/assets": ["packages/catalogue/src/assets.ts"],
+      "@roomsell/pricing": ["packages/pricing/src/index.ts"],
+      "@roomsell/inventory": ["packages/inventory/src/index.ts"],
+      "@roomsell/inventory/server": ["packages/inventory/src/server.ts"],
       "@roomsell/scene-core": ["packages/scene-core/src/index.ts"],
       "@roomsell/geometry": ["packages/geometry/src/index.ts"],
       "@roomsell/layout-engine": ["packages/layout-engine/src/index.ts"],

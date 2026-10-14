@@ -39,3 +39,9 @@ The service role bypasses RLS and is a trusted server boundary. SQL validates id
 `/demo` uses `.local/scene.json` relative to `apps/web`, or `ROOMSELL_DATA_DIR`. Atomic replacement and an in-process queue protect its single-process writes. It is separate from account data and supports synthetic fixtures only. Stop that server before copying/restoring its file. Multi-replica file persistence is unsupported.
 
 Run `npm run test:integration` for real Auth/SQL/REST/Storage isolation checks. See [security](SECURITY.md) and [test plan](TEST_PLAN.md).
+
+## Architecture steps 1–4 forward migrations
+
+008 adds explicit retailer pricing policies/revisions and tenant-scoped immutable quotations, source admission and checked idempotent issuance. 009 adds inventory connection metadata, isolated encrypted credentials, explicit external variant mappings, sanitized sync runs and atomic reconciliation. 010 adds independent exact SQL policy-math validation before quotation insertion. All use forward migrations; no existing scene contract/data is rewritten. Apply pending migrations with the local ledger command; hosted rollout must target the intended database explicitly.
+
+New direct database suites use fail-closed local preflight before creating identities or writing fixtures. The integration script discovers all `tests/*database*.test.ts` files and executes them explicitly; normal unit runs skip these cases.

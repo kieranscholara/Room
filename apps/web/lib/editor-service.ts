@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import {
   createDemoScene,
   requestSchema,
@@ -9,7 +10,7 @@ import {
   type Request,
   type Scene,
 } from '@roomsell/scene-core';
-import { propose } from '@roomsell/layout-engine';
+import { propose, SOLVER } from '@roomsell/layout-engine';
 import { validateScene } from '@roomsell/geometry';
 
 export interface RecordData {
@@ -27,6 +28,55 @@ export interface Persistence {
 export interface SavedProposal {
   proposal: Proposal;
   operation: Request & { action: 'preview' };
+  engineVersion: number;
+  baseSceneFingerprint: string;
+  approvedSceneFingerprint: string;
+}
+const fingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
+const savedProposalSchema = z
+  .object({
+    proposal: z
+      .object({
+        id: z.string().min(1).max(100),
+        baseVersion: z.number().int().nonnegative(),
+        scene: sceneSchema,
+        movedIds: z.array(z.string()).max(30),
+        evaluated: z.number().int().nonnegative(),
+      })
+      .strict(),
+    operation: requestSchema.options[0],
+    engineVersion: z.number().int().positive(),
+    baseSceneFingerprint: fingerprintSchema,
+    approvedSceneFingerprint: fingerprintSchema,
+  })
+  .strict();
+
+export function parseSavedProposal(value: unknown): SavedProposal {
+  const parsed = savedProposalSchema.safeParse(value);
+  if (!parsed.success) throw new ServiceError(409, 'The preview is incompatible. Preview the change again.');
+  return parsed.data;
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const object = value as Record<string, unknown>;
+    return `{${Object.keys(object)
+      .filter((key) => object[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+export function sceneFingerprint(scene: Scene): string {
+  return createHash('sha256')
+    .update(canonicalJson(sceneSchema.parse(scene)))
+    .digest('hex');
+}
+export interface EditorServiceOptions {
+  engineVersion?: number;
+  planner?: typeof propose;
 }
 const serviceErrorBrand = Symbol.for('roomsell.service-error');
 export class ServiceError extends Error {
@@ -56,10 +106,15 @@ export class EditorService {
   private queue: Promise<unknown> = Promise.resolve();
   private proposals = new Map<string, SavedProposal>();
   private initialScene: Scene;
+  private planner: typeof propose;
+  private engineVersion: number;
   constructor(
     private persistence: Persistence,
     initialScene: Scene = createDemoScene(),
+    options: EditorServiceOptions = {},
   ) {
+    this.planner = options.planner || propose;
+    this.engineVersion = options.engineVersion ?? SOLVER.version;
     this.initialScene = sceneSchema.parse(initialScene);
     if (validateScene(this.initialScene).length)
       throw new ServiceError(422, 'Initial room geometry is invalid.');
@@ -117,7 +172,7 @@ export class EditorService {
     if (request.expectedVersion !== data.scene.version)
       throw new ServiceError(409, 'This room has a newer revision. Reload before editing.');
     if (request.action === 'preview') {
-      const result = propose(data.scene, request.operation);
+      const result = this.planner(data.scene, request.operation);
       if (!result.ok) throw new ServiceError(422, result.conflicts.map((c) => c.message).join(' '), result);
       const proposal = {
         id: randomUUID(),
@@ -127,19 +182,39 @@ export class EditorService {
         evaluated: result.evaluated,
       };
       if (this.proposals.size >= 100) this.proposals.delete(this.proposals.keys().next().value!);
-      this.proposals.set(proposal.id, { proposal: structuredClone(proposal), operation: request });
-      await this.persistence.saveProposal?.({ proposal: structuredClone(proposal), operation: request });
+      const saved: SavedProposal = {
+        proposal: structuredClone(proposal),
+        operation: request,
+        engineVersion: this.engineVersion,
+        baseSceneFingerprint: sceneFingerprint(data.scene),
+        approvedSceneFingerprint: sceneFingerprint(result.scene),
+      };
+      this.proposals.set(proposal.id, structuredClone(saved));
+      await this.persistence.saveProposal?.(structuredClone(saved));
       return { proposal };
     }
     let next: Scene;
     if (request.action === 'accept') {
-      const saved = this.persistence.loadProposal
+      const stored = this.persistence.loadProposal
         ? await this.persistence.loadProposal(request.proposalId)
         : this.proposals.get(request.proposalId);
-      if (!saved || saved.proposal.baseVersion !== data.scene.version)
-        throw new ServiceError(409, 'The preview expired. Preview the change again.');
-      const result = propose(data.scene, saved.operation.operation);
-      if (!result.ok) throw new ServiceError(422, 'The proposed arrangement is no longer valid.', result);
+      if (!stored) throw new ServiceError(409, 'The preview expired. Preview the change again.');
+      const saved = parseSavedProposal(stored);
+      if (
+        saved.engineVersion !== this.engineVersion ||
+        saved.proposal.id !== request.proposalId ||
+        saved.proposal.baseVersion !== data.scene.version ||
+        saved.operation.expectedVersion !== data.scene.version ||
+        saved.baseSceneFingerprint !== sceneFingerprint(data.scene) ||
+        saved.approvedSceneFingerprint !== sceneFingerprint(saved.proposal.scene) ||
+        saved.proposal.scene.id !== data.scene.id ||
+        saved.proposal.scene.organisationId !== data.scene.organisationId ||
+        saved.proposal.scene.version !== data.scene.version
+      )
+        throw new ServiceError(409, 'The preview is incompatible. Preview the change again.');
+      const result = this.planner(data.scene, saved.operation.operation);
+      if (!result.ok || sceneFingerprint(result.scene) !== saved.approvedSceneFingerprint)
+        throw new ServiceError(409, 'The preview changed. Preview the change again.');
       next = result.scene;
       // Locks and physical dimensions are checked again at the commit boundary.
       if (saved.operation.operation.type !== 'locks') {

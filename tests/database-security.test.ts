@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { localTestPreflight } from '../scripts/test-preflight.mjs';
 import { Client } from 'pg';
 import { createDemoScene, type Scene } from '@roomsell/scene-core';
 
@@ -163,14 +163,7 @@ describe.skipIf(!runDatabaseTests)('real Supabase tenant and authoritative scene
   }
 
   beforeAll(async () => {
-    let status: LocalStatus;
-    try {
-      status = JSON.parse(await readFile(new URL('../.local/infra/status.json', import.meta.url), 'utf8'));
-    } catch {
-      throw new Error(
-        'Start the local Supabase stack and apply migrations before database integration tests.',
-      );
-    }
+    const status: LocalStatus = await localTestPreflight();
     service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });

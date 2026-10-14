@@ -1,11 +1,18 @@
 import 'server-only';
 import { sceneSchema, requestSchema, type Scene, type Request, type Operation } from '@roomsell/scene-core';
 import {
+  catalogueProductSelectionFromRow,
+  catalogueVariantSelectionFromRow,
+  catalogueObjectMatches,
+  isCatalogueVariantAvailable,
+} from '@roomsell/catalogue';
+import {
   EditorService,
   ServiceError,
   type Persistence,
   type RecordData,
   type SavedProposal,
+  parseSavedProposal,
 } from './editor-service';
 import { authenticated, membership, adminClient, databaseError } from './supabase-server';
 import { uuid } from './account-schemas';
@@ -42,31 +49,16 @@ export async function validateCatalogueOperation(context: ProjectContext, operat
     .eq('organisation_id', context.project.organisation_id)
     .maybeSingle();
   databaseError(result.error);
-  const variant = result.data;
-  const product = variant && (Array.isArray(variant.product) ? variant.product[0] : variant.product);
-  if (
-    !variant ||
-    !product ||
-    !variant.active ||
-    !product.active ||
-    variant.availability === 'out_of_stock' ||
-    (variant.availability === 'in_stock' && Number(variant.stock_quantity) <= 0) ||
-    product.availability === 'out_of_stock'
-  )
+  const row = result.data;
+  const productRow = row && (Array.isArray(row.product) ? row.product[0] : row.product);
+  const variant = row && catalogueVariantSelectionFromRow(row);
+  const product = productRow && catalogueProductSelectionFromRow(productRow);
+  if (!variant || !product || !isCatalogueVariantAvailable(product, variant))
     throw new ServiceError(422, 'Choose an available product from this organisation’s catalogue.');
   if (product.currency !== context.project.currency)
     throw new ServiceError(422, 'Product currency must match the project currency.');
   const object = operation.object;
-  if (
-    object.sku !== variant.sku ||
-    object.category !== product.category ||
-    object.name !== product.name ||
-    object.color !== variant.color ||
-    object.solid !== (product.category !== 'rug') ||
-    object.dimensions.width !== Number(variant.width_m) ||
-    object.dimensions.depth !== Number(variant.depth_m) ||
-    object.dimensions.height !== Number(variant.height_m)
-  )
+  if (!catalogueObjectMatches(object, product, variant))
     throw new ServiceError(
       409,
       'Catalogue details changed or do not match this product. Reload the catalogue and preview again.',
@@ -169,7 +161,7 @@ class SupabasePersistence implements Persistence {
       .maybeSingle();
     databaseError(result.error);
     if (!result.data) return null;
-    const payload = result.data.payload as SavedProposal;
+    const payload = parseSavedProposal(result.data.payload);
     const request = requestSchema.parse(payload.operation);
     if (
       request.action !== 'preview' ||
@@ -180,7 +172,7 @@ class SupabasePersistence implements Persistence {
     await validateCatalogueOperation(this.context, request.operation);
     this.operation = { action: 'accept', ...request.operation };
     return {
-      proposal: { ...payload.proposal, scene: sceneSchema.parse(payload.proposal.scene) },
+      ...payload,
       operation: request,
     };
   }

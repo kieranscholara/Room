@@ -1,4 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { randomBytes } from 'node:crypto';
+import { localTestPreflight } from './scripts/test-preflight.mjs';
+await localTestPreflight();
 export default defineConfig({
   testDir: './tests/e2e',
   workers: 1,
@@ -16,6 +19,11 @@ export default defineConfig({
     url: 'http://127.0.0.1:3100/api/scene',
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { ROOMSELL_DATA_DIR: '../../.local/e2e', ROOMSELL_LOCAL_SUPABASE: '1' },
+    env: {
+      ROOMSELL_DATA_DIR: '../../.local/e2e',
+      ROOMSELL_LOCAL_SUPABASE: '1',
+      ROOMSELL_ENABLE_DEMO: '1',
+      ROOMSELL_CONNECTOR_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+    },
   },
 });

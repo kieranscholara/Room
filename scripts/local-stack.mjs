@@ -6,6 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { setInterval, clearInterval } from 'node:timers';
 import { fileURLToPath, URL } from 'node:url';
+import { assertLocalStatus } from './runtime-target.mjs';
 
 export const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
 const infrastructureDirectory = path.join(repositoryRoot, '.local', 'infra');
@@ -118,30 +119,18 @@ export async function captureLocalStatus() {
   const temporary = `${filename}.${randomUUID()}.tmp`;
   await runLocalCli(['status', '-o', 'json'], 'status.log', { stdoutFile: temporary });
   let status;
-  let api;
   try {
     status = JSON.parse(await readFile(temporary, 'utf8'));
-    api = typeof status.API_URL === 'string' ? new URL(status.API_URL) : null;
   } catch {
     throw new Error('Could not read local Supabase status. Run npm run setup:local again.');
   }
-  if (
-    !api ||
-    api.protocol !== 'http:' ||
-    !['127.0.0.1', 'localhost'].includes(api.hostname) ||
-    api.port !== '54321' ||
-    typeof status.ANON_KEY !== 'string' ||
-    !status.ANON_KEY ||
-    typeof status.SERVICE_ROLE_KEY !== 'string' ||
-    !status.SERVICE_ROLE_KEY
-  ) {
-    throw new Error('Local Supabase status is incomplete or does not identify this local stack.');
-  }
+  assertLocalStatus(status, { requireDatabase: true });
   await rename(temporary, filename);
   return status;
 }
 
 export async function assertLocalServicesReady(status) {
+  assertLocalStatus(status);
   const endpoints = ['/auth/v1/health', '/storage/v1/status', '/rest/v1/'];
   for (const endpoint of endpoints) {
     const response = await globalThis.fetch(new URL(endpoint, status.API_URL), {

@@ -3,39 +3,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Field } from '@roomsell/ui';
+import { isCatalogueVariantAvailable, type SelectedProjectProducts } from '@roomsell/catalogue';
 import { Editor } from './editor';
+import { ProjectQuotations } from './project-quotations';
 import { useEditor } from '../lib/editor-store';
 import { AccountRequestError, accountRequest, type OrganisationRole } from './workspace-frame';
-import {
-  formatMoney,
-  type CatalogueProduct,
-  type ProductAsset,
-  type ProjectRecord,
-} from './workspace-business-types';
+import { formatMoney, type CatalogueProduct, type ProjectRecord } from './workspace-business-types';
 import './workspace-business.css';
 
 interface ProjectDetails extends ProjectRecord {
   canEdit: boolean;
   role: OrganisationRole;
-}
-interface SelectedProducts {
-  items: {
-    objectId: string;
-    variantId: string;
-    sku: string;
-    name: string;
-    variantName: string | null;
-    priceMinor: number | null;
-    currency: string;
-    available: boolean;
-    stale: boolean;
-    assets: ProductAsset[];
-  }[];
-  totalMinor: number | null;
-  budgetMinor: number;
-  currency: string;
-  stale: boolean;
-  overBudget: boolean | null;
 }
 interface CustomerMember {
   userId: string;
@@ -89,6 +67,12 @@ export function ProjectEditor({ projectId }: { projectId: string }) {
       />
       <div className="project-business-tools">
         <ProjectProducts key={projectId} project={project} />
+        <ProjectQuotations
+          key={`quotes-${projectId}`}
+          projectId={projectId}
+          organisationId={project.organisationId}
+          role={project.role}
+        />
         {['owner', 'admin'].includes(project.role) && <ProjectAccess project={project} />}
         <Link
           className="business-text-link"
@@ -104,7 +88,7 @@ function ProjectProducts({ project }: { project: ProjectDetails }) {
   const { scene, endpoint, busy, proposal, selectedId, preview, select } = useEditor();
   const current = endpoint === `/api/projects/${project.id}/scene` ? scene : null;
   const [catalogue, setCatalogue] = useState<CatalogueProduct[]>([]);
-  const [selected, setSelected] = useState<SelectedProducts | null>(null);
+  const [selected, setSelected] = useState<SelectedProjectProducts | null>(null);
   const [error, setError] = useState('');
   const [variantId, setVariantId] = useState('');
   const [query, setQuery] = useState('');
@@ -119,7 +103,7 @@ function ProjectProducts({ project }: { project: ProjectDetails }) {
     setCatalogueLoading(true);
     try {
       const [items, products] = await Promise.all([
-        accountRequest<SelectedProducts>(`/api/projects/${project.id}/products`),
+        accountRequest<SelectedProjectProducts>(`/api/projects/${project.id}/products`),
         staff
           ? accountRequest<CatalogueProduct[]>(
               `/api/organisations/${project.organisationId}/catalogue?${new URLSearchParams({ offset: String(offset), ...(searchQuery ? { q: searchQuery } : {}) })}`,
@@ -142,12 +126,7 @@ function ProjectProducts({ project }: { project: ProjectDetails }) {
     .flatMap((product) => product.variants.map((variant) => ({ product, variant })))
     .filter(
       ({ product, variant }) =>
-        product.active &&
-        variant.active &&
-        product.currency === project.currency &&
-        product.availability !== 'out_of_stock' &&
-        variant.availability !== 'out_of_stock' &&
-        (variant.availability !== 'in_stock' || variant.stockQuantity > 0),
+        product.currency === project.currency && isCatalogueVariantAvailable(product, variant),
     );
   const chosen = variants.find(({ variant }) => variant.id === variantId);
   const selectedObject = current?.objects.find((object) => object.id === selectedId);

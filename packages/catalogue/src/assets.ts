@@ -1,19 +1,8 @@
 import sharp from 'sharp';
 import { validateBytes, validateString } from 'gltf-validator';
 import { dimensionsSchema, type Dimensions } from './index';
-
-export const ASSET_LIMITS = {
-  imageBytes: 10 * 1024 * 1024,
-  modelBytes: 50 * 1024 * 1024,
-  imageSide: 8192,
-  imagePixels: 40_000_000,
-  textureSide: 4096,
-  texturePixels: 32_000_000,
-  triangles: 200_000,
-  vertices: 500_000,
-  nodes: 1000,
-  textures: 32,
-} as const;
+import { ASSET_LIMITS, MODEL_DIMENSION_TOLERANCE, modelAxisTolerance } from './asset-policy';
+export { ASSET_LIMITS } from './asset-policy';
 
 export class AssetValidationError extends Error {
   constructor(message: string) {
@@ -410,7 +399,7 @@ export async function validateProductAsset(
     return error(`Model failed glTF structural validation (${report.issues.numErrors} errors)`);
   const measured = measureModel(json, buffers);
   for (const axis of ['width', 'depth', 'height'] as const)
-    if (Math.abs(measured.dimensions[axis] - expected[axis]) > Math.max(0.02, expected[axis] * 0.02))
+    if (Math.abs(measured.dimensions[axis] - expected[axis]) > modelAxisTolerance(expected[axis]))
       return error(`Model ${axis} does not match catalogue dimensions within 2 cm or 2%`);
   return {
     kind: 'model',
@@ -422,7 +411,7 @@ export async function validateProductAsset(
       warnings: report.issues.numWarnings,
       units: 'metres',
       axes: { width: 'x', depth: 'z', height: 'y' },
-      tolerance: { metres: 0.02, proportion: 0.02 },
+      tolerance: MODEL_DIMENSION_TOLERANCE,
       ...measured,
       texturePixels,
       textures: rawImages.length,

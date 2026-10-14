@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { ServiceError, isServiceError } from './editor-service';
 
-export function assertSameOrigin(request: NextRequest) {
+export function assertSameOrigin(request: NextRequest, message = 'Cross-origin changes are not allowed.') {
   const origin = request.headers.get('origin');
   if (origin) {
     let permitted = false;
@@ -12,11 +12,15 @@ export function assertSameOrigin(request: NextRequest) {
     } catch {
       /* Reject malformed origins. */
     }
-    if (!permitted) throw new ServiceError(403, 'Cross-origin changes are not allowed.');
+    if (!permitted) throw new ServiceError(403, message);
   }
 }
-export async function jsonBody(request: NextRequest, limit = 64 * 1024): Promise<unknown> {
-  assertSameOrigin(request);
+export async function jsonBody(
+  request: NextRequest,
+  limit = 64 * 1024,
+  messages?: { crossOrigin?: string; invalidJson?: string },
+): Promise<unknown> {
+  assertSameOrigin(request, messages?.crossOrigin);
   if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json')
     throw new ServiceError(415, 'JSON is required.');
   const reader = request.body?.getReader();
@@ -36,7 +40,7 @@ export async function jsonBody(request: NextRequest, limit = 64 * 1024): Promise
     }
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch (error) {
-    if (error instanceof SyntaxError) throw new ServiceError(400, 'Invalid JSON.');
+    if (error instanceof SyntaxError) throw new ServiceError(400, messages?.invalidJson || 'Invalid JSON.');
     throw error;
   }
 }

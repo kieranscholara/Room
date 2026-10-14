@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { currencyFractionDigits, nullableCatalogueTotalMinor } from './money';
+export * from './policy';
+export * from './money';
+export * from './models';
+export * from './asset-policy';
 
 export const dimensionsSchema = z
   .object({
@@ -331,28 +336,14 @@ export function catalogueTotalMinor(
   items: Array<{ priceMinor: number; quantity: number; currency: string }>,
   currency: string,
 ): number {
-  let total = 0n;
-  for (const item of items) {
-    if (item.currency !== currency) throw new Error('Catalogue currency does not match the project');
-    if (
-      !Number.isSafeInteger(item.priceMinor) ||
-      item.priceMinor < 0 ||
-      !Number.isSafeInteger(item.quantity) ||
-      item.quantity < 0
-    )
-      throw new Error('Prices and quantities must be nonnegative safe integers');
-    total += BigInt(item.priceMinor) * BigInt(item.quantity);
-  }
-  if (total > BigInt(Number.MAX_SAFE_INTEGER))
-    throw new Error('Catalogue total exceeds the safe integer limit');
-  return Number(total);
+  const total = nullableCatalogueTotalMinor(items, currency);
+  if (total === null) throw new Error('Prices and quantities must be nonnegative safe integers');
+  return total;
 }
 
 /** Parse the retailer's decimal input without binary floating-point rounding. */
 export function decimalPriceToMinor(text: string, currency: string): number {
-  if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Currency must use three uppercase letters');
-  const digits =
-    new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
+  const digits = currencyFractionDigits(currency);
   const match = /^(0|[1-9]\d*)(?:\.(\d+))?$/.exec(text.trim());
   if (!match || (match[2]?.length ?? 0) > digits)
     throw new Error(`Use a nonnegative decimal with at most ${digits} fractional digits`);

@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { EditorService, type Persistence, type RecordData } from './editor-service';
+import { assertDemoEnabled } from './demo-policy';
 
 export class FilePersistence implements Persistence {
   constructor(private path: string) {}
@@ -21,6 +22,7 @@ export class FilePersistence implements Persistence {
 }
 const globalService = globalThis as typeof globalThis & { roomsellEditor?: EditorService };
 export function service(): EditorService {
+  assertDemoEnabled();
   return (globalService.roomsellEditor ??= new EditorService(
     new FilePersistence(resolve(process.env.ROOMSELL_DATA_DIR || '.local', 'scene.json')),
   ));

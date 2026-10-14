@@ -85,8 +85,24 @@ Operations are transform, locks, room, group, group-remove, add-object and remov
 
 Saved project previews are actor-scoped, expire after 15 minutes and have a per-actor pending limit of 100 checked by the application. Competing requests can reach the limit concurrently, so this is not a database resource quota. Committing removes stale previews. GET `/scene/history` returns the latest 100 `{version,scene}` entries.
 
-The unauthenticated `/api/scene` and `/api/scene/history` expose the same editor contract only for the isolated synthetic demo. Local proposals are process-owned and do not survive restart.
+The unauthenticated `/api/scene` and `/api/scene/history` expose the same editor contract only for the isolated synthetic demo. Local proposals are process-owned and do not survive restart. The page and both demo routes require ROOMSELL_ENABLE_DEMO=1; disabled access returns 404 before storage access. Demo POST streams a 16 KiB byte bound. Durable project previews bind the engine version, base scene and approved-result fingerprints; legacy/incompatible previews return 409 and must be reviewed again.
 
 ## Errors
 
 Common statuses: 400 malformed/schema-invalid input; 401 missing/invalid session; 403 missing role/edit rights or cross-origin mutation; 404 hidden/missing records; 409 stale scene/catalogue/preview conflicts; 413 oversized bodies/files; 415 wrong content type; 422 geometry/lock/asset/import errors; 429 too many pending previews; 503 missing database configuration. Unexpected errors return a generic 500 without provider credentials or raw internal diagnostics.
+
+## Retailer pricing and quotations
+
+`GET /api/organisations/:orgId/pricing` returns `{revision,policy,updatedAt}` or null to staff. Owner/admin PUT `{expectedRevision,policy}` uses compare-and-swap (0 creates the first revision). All policy fields are explicit: `{version:1,currency,taxMode:"exclusive"|"inclusive",taxRateBps,rounding:"per_line"|"invoice",discountBps,deliveryMinor,installationMinor,feesTaxable}`. Basis points and integer minor currency units avoid floating point money; no jurisdiction is guessed.
+
+Staff `POST /api/projects/:projectId/quotations/preview` accepts `{expectedSceneVersion,expectedPolicyRevision}` and returns `{source,calculation,sourceFingerprint}`. Source is derived from the accepted, confirmed room and real current catalogue; quantities aggregate by variant. Missing/stale/unavailable variants, currency mismatches and insufficient stock reject quotation creation.
+
+Staff POST `/quotations` issues with `{expectedSceneVersion,expectedPolicyRevision,expectedSourceFingerprint,idempotencyKey}`. A changed source requires fresh review. The server computes pricing, and SQL independently checks policy math and source freshness under the organisation lock before append-only insertion. Retries with the same actor/key/request return the same quote; key reuse for a different request returns 409. Stock is checked, not reserved or decremented.
+
+GET `/quotations` returns the latest 50 issued records; GET `/quotations/:quoteId` returns an immutable snapshot. GET `/quotations/:quoteId/pdf` renders that snapshot as an authenticated PDF download. Staff and explicitly assigned customer accounts can read quotations only in an accessible project. Catalogue and policy updates never change an issued quote.
+
+## Inventory connectors
+
+Owner/admin `GET /api/organisations/:orgId/inventory` returns safe connection metadata, mappings, last 50 sync runs and `encryptionConfigured`. POST creates `{name,endpoint,token,enabled}`. PATCH `/:connectionId` uses `{expectedRevision,name,endpoint,enabled,token?}`; changing endpoint origin requires a fresh token. A public HTTPS address is verified before configuration and each fetch. No credential/ciphertext/provider-body appears in responses.
+
+PUT `/:connectionId/mappings` replaces the complete mapping set with `{expectedRevision,mappings:[{externalProductId,externalVariantId,productId,variantId}]}`. IDs must belong to actual same-organisation product variants; a variant can have one connector owner. POST `/:connectionId/sync` takes `{expectedRevision}` and fetches one bounded, fresh complete snapshot. Validation/mapping failure leaves all catalogue values unchanged and records a sanitised failed run. Successful sync updates price/stock/availability, connection revision and freshness atomically; saved scene transforms/dimensions and issued quotes stay unchanged. See [inventory contract](INVENTORY.md).

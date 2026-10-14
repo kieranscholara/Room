@@ -4,7 +4,8 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@roomsell\/catalogue\/assets$/, replacement: resolve('packages/catalogue/src/assets.ts') },
-      ...['scene-core', 'geometry', 'layout-engine', 'catalogue'].map((name) => ({
+      { find: /^@roomsell\/inventory\/server$/, replacement: resolve('packages/inventory/src/server.ts') },
+      ...['scene-core', 'geometry', 'layout-engine', 'catalogue', 'pricing', 'inventory'].map((name) => ({
         find: new RegExp(`^@roomsell/${name}$`),
         replacement: resolve(`packages/${name}/src/index.ts`),
       })),

@@ -1,6 +1,6 @@
 # RoomSell AI
 
-RoomSell has a measured 2D room editor, Supabase accounts and organisation permissions, and a retailer catalogue connected to customer projects. Real projects start empty and use products entered or imported by their retailer. `/demo` provides a separate synthetic bedroom fixture for trying the editor.
+RoomSell has synchronized 2D/3D room views, Supabase accounts and organisation permissions, a retailer catalogue connected to customer projects, configured pricing, immutable quotations/PDFs, and a custom REST inventory connector. Real projects start empty and use products entered or imported by their retailer. `/demo` provides a separate synthetic bedroom fixture when explicitly enabled with `ROOMSELL_ENABLE_DEMO=1`.
 
 ## Run locally
 
@@ -25,7 +25,11 @@ In restricted cloud workspaces, `npm ci --cache /workspace/.npm-cache` directs n
 4. Accept a preview to save it. Move and rotate furniture, set independent locks, create rigid groups, compare revisions, and undo/redo. The backend checks geometry, permissions and the current version before committing.
 5. Invite colleagues or customers through Team. Copy the generated invitation link to the intended recipient. Owners/admins can grant a customer account view or edit access to a particular project; a contact record alone grants no access.
 
-The project product panel shows current catalogue prices and their total against the saved budget. These are live design estimates; tax, discounts, stock reservations and issued quotations are future work. Models are validated assets available for download; the editor currently renders measured 2D rectangular proxies.
+The project product panel shows current catalogue prices and their total against the saved budget. These are live design estimates. Owners/admins configure explicit currency/tax/discount/fee/rounding rules in Pricing. Staff review and issue quotations from accepted measured scenes; issued amounts remain immutable and downloadable as PDF. Quotes check aggregate stock at issuance and do not reserve it.
+
+Switch between 2D floor plan and 3D room view to inspect the same accepted or preview scene. Validated matching models use floor-centred pivots without scaling; missing/incompatible assets use labelled dimension proxies. Placement controls and protected previews still own edits.
+
+Inventory lets owners/admins configure a public HTTPS custom REST snapshot endpoint and explicit provider-to-variant mappings. A server-only `ROOMSELL_CONNECTOR_ENCRYPTION_KEY` (32 random bytes in base64) is required to save credentials or sync. Configure secrets through deployment settings; never paste them into source. Live retailer integration requires an actual endpoint/feed and token. See [inventory contract](docs/INVENTORY.md).
 
 For the synthetic scenario, open `/demo`, select the bed, keep Smart Rearrange selected, set Z to **3.8** and rotation to **180°**, and preview. Bedside tables and the rug follow their anchor preferences while the fully locked wardrobe stays exact.
 
@@ -43,7 +47,7 @@ npm run test:e2e
 npm audit
 ```
 
-Database and authenticated browser tests require the local stack and migrations. The integration command runs real Auth/PostgreSQL/REST/Storage security tests; the normal unit command skips that suite unless explicitly enabled. If Chromium is already installed, use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e`. This command builds the app and tests its production server. Run one browser suite at a time: it uses port 3100, forces local Supabase, and keeps the synthetic scene store under `.local/e2e`.
+Database and authenticated browser tests require the local stack and migrations. The integration command runs real Auth/PostgreSQL/REST/Storage security tests; the normal unit command skips that suite unless explicitly enabled. If Chromium is already installed, use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e`. This command builds the app and tests its production server. Run one browser suite at a time: it uses port 3100, rejects hosted Supabase bindings before writes, explicitly enables the demo, and keeps the synthetic scene store under `.local/e2e`.
 
 The [validation record](docs/VALIDATION.md) records actual results. The [test plan](docs/TEST_PLAN.md) describes coverage and remaining gates.
 
@@ -53,10 +57,12 @@ The [validation record](docs/VALIDATION.md) records actual results. The [test pl
 - `packages/geometry`: rotated footprints, collisions, room/ceiling checks and architectural clearances.
 - `packages/layout-engine`: bounded deterministic search, independent locks and rigid groups.
 - `packages/catalogue`: product/variant contracts, bounded CSV parsing, integer pricing and asset validation.
+- `packages/pricing`: exact configured commercial calculations and validated quotation math.
+- `packages/inventory`: bounded snapshot/mapping contracts and secure HTTPS/encryption adapters.
 - `packages/ui`: accessible shared controls.
 - `apps/web`: Next.js application, React Konva editor, account/workspace flows and authenticated server APIs.
 - `supabase/migrations`: tenant tables, RLS and checked transactional write functions.
 
 Real project scenes, versions, proposals and catalogues persist in PostgreSQL; assets use a private Storage bucket. The unauthenticated synthetic demo keeps its separate atomic local file adapter. That adapter supports one server process and must contain synthetic data only.
 
-The first three development milestones cover editor rules, accounts/tenant persistence, and catalogue/customer/project workflows. Shared 3D rendering, AI layout intentions, immutable sales proposals/PDFs, billing, durable background jobs and production operations remain on the [roadmap](docs/ROADMAP.md). See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md), [limitations](docs/KNOWN_LIMITATIONS.md), and the repository's [engineering rules](AGENTS.md).
+The first three development milestones cover editor rules, accounts/tenant persistence, and catalogue/customer/project workflows. Room reference photographs, AI layout intentions, billing, inventory reservations, durable background jobs, consumer marketplace features and production operations remain on the [roadmap](docs/ROADMAP.md). See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md), [limitations](docs/KNOWN_LIMITATIONS.md), and the repository's [engineering rules](AGENTS.md).
