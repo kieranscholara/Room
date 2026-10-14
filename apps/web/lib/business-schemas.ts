@@ -19,4 +19,6 @@ export const projectInputSchema = z
     room: roomSchema.refine((r) => r.measurementsConfirmed, { message: 'Confirm the room measurements.' }),
   })
   .strict();
-export const projectAccessSchema = z.object({ userId: z.uuid(), canEdit: z.boolean() }).strict();
+export const projectAccessSchema = z
+  .object({ userId: z.uuid(), canEdit: z.boolean(), canOrder: z.boolean().default(false) })
+  .strict();

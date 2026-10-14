@@ -1,4 +1,5 @@
 'use client';
+import { FixtureInventory } from './fixture-inventory';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Field } from '@roomsell/ui';
 import { validateMappings } from '@roomsell/inventory';
@@ -134,391 +135,398 @@ export function InventoryPanel({ context }: { context: WorkspaceContext }) {
       </p>
     );
   return (
-    <section className="account-panel" aria-label="Inventory connections">
-      <div>
-        <h1>Inventory integrations</h1>
-        <p className="account-muted">
-          Connect a retailer inventory endpoint, map its product references to your real catalogue, then
-          synchronise prices, stock and availability when needed.
-        </p>
-      </div>
-      {error && (
-        <p role="alert" className="account-error">
-          {error}
-        </p>
-      )}
-      {message && (
-        <p role="status" className="account-notice">
-          {message}
-        </p>
-      )}
-      {state && !state.encryptionConfigured && (
-        <p role="status" className="account-notice">
-          Inventory credentials need server encryption configuration before connections can be saved or
-          synchronised. Your deployment administrator must configure the inventory encryption key.
-        </p>
-      )}
-      <div className="business-actions">
-        <Button
-          disabled={unavailable}
-          onClick={() => {
-            setForm(emptyConnection());
-            setMappingEdit(null);
-            setError('');
-          }}
-        >
-          New inventory connection
-        </Button>
-        <Button
-          disabled={busy || loading}
-          onClick={() => {
-            setError('');
-            void load();
-          }}
-        >
-          Refresh inventory
-        </Button>
-      </div>
-      {loading && <p role="status">Loading inventory connections…</p>}
-      <details className="account-details">
-        <summary>Supported inventory endpoint</summary>
-        <div className="business-form">
+    <>
+      <FixtureInventory orgId={context.organisation.id} />
+      <section className="account-panel" aria-label="Inventory connections">
+        <div>
+          <h1>Inventory integrations</h1>
           <p className="account-muted">
-            This connector reads a custom REST inventory snapshot from a public HTTPS endpoint using its
-            bearer access token. The endpoint must return JSON with schemaVersion equal to 1, generatedAt as
-            an ISO date and time, and an items array. Each item needs externalProductId, externalVariantId,
-            sku, currency, priceMinor, stockQuantity and availability. Prices use integer currency minor
-            units.
-          </p>
-          <p className="account-muted">
-            The snapshot must contain exactly the configured mappings, up to 1,000 items and 1 MiB. It must be
-            newer than the last accepted snapshot and no more than 15 minutes old. Availability accepts
-            in_stock, made_to_order or out_of_stock; in-stock items require positive stock and out-of-stock
-            items require zero stock. Unknown references or mismatched SKUs reject the whole update.
+            Connect a retailer inventory endpoint, map its product references to your real catalogue, then
+            synchronise prices, stock and availability when needed.
           </p>
         </div>
-      </details>
-      {form && (
-        <form
-          aria-label="Inventory connection form"
-          className="business-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (unavailable) return;
-            const submitted = { ...form };
-            setForm((current) => (current ? { ...current, token: '' } : null));
-            setBusy(true);
-            setError('');
-            setMessage('');
-            try {
-              await accountRequest(`${base}${submitted.id ? `/${submitted.id}` : ''}`, {
-                method: submitted.id ? 'PATCH' : 'POST',
-                body: {
-                  ...(submitted.id ? { expectedRevision: submitted.expectedRevision } : {}),
-                  name: submitted.name,
-                  endpoint: submitted.endpoint,
-                  enabled: submitted.enabled,
-                  ...(!submitted.id || submitted.token ? { token: submitted.token } : {}),
-                },
-              });
-              setForm(null);
-              setMessage('Inventory connection saved. Review its mappings before synchronising.');
-              await load();
-            } catch (reason) {
-              setError(reason instanceof Error ? reason.message : 'Could not save this connection.');
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <h2>{form.id ? 'Edit inventory connection' : 'New inventory connection'}</h2>
-          <div className="business-form-grid">
-            <Field label="Connection name">
-              <input
-                aria-label="Connection name"
-                required
-                maxLength={100}
-                disabled={unavailable}
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-              />
-            </Field>
-            <Field label="Inventory endpoint">
-              <input
-                aria-label="Inventory endpoint"
-                type="url"
-                required
-                pattern="https://.*"
-                maxLength={2048}
-                disabled={unavailable}
-                value={form.endpoint}
-                onChange={(event) => setForm({ ...form, endpoint: event.target.value })}
-              />
-            </Field>
-            <Field label={form.id ? 'Replacement access token (optional)' : 'Inventory access token'}>
-              <input
-                aria-label={form.id ? 'Replacement access token (optional)' : 'Inventory access token'}
-                type="password"
-                autoComplete="new-password"
-                required={!form.id}
-                maxLength={4096}
-                disabled={unavailable}
-                value={form.token}
-                onChange={(event) => setForm({ ...form, token: event.target.value })}
-              />
-            </Field>
-            <label className="business-checkbox">
-              <input
-                type="checkbox"
-                checked={form.enabled}
-                disabled={unavailable}
-                onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
-              />
-              Connection enabled
-            </label>
-          </div>
-          <p className="account-muted">
-            Use a public HTTPS endpoint that returns the supported inventory snapshot. Access tokens are
-            encrypted on the server and cleared from this form when submitted.
-            {form.id && ' Leave the replacement token blank to retain the existing credential.'}
+        {error && (
+          <p role="alert" className="account-error">
+            {error}
           </p>
-          <div className="business-actions">
-            <Button type="submit" variant="primary" disabled={unavailable}>
-              {busy ? 'Saving…' : 'Save inventory connection'}
-            </Button>
-            <Button type="button" disabled={busy} onClick={() => setForm(null)}>
-              Cancel connection edit
-            </Button>
-          </div>
-        </form>
-      )}
-      {!loading && state && !state.connections.length && (
-        <p className="account-empty">
-          No inventory connections yet. Add a supported retailer endpoint to begin. Catalogue CSV imports
-          remain available in Catalogue.
-        </p>
-      )}
-      {!!state?.connections.length && (
-        <Field label="Inventory connection">
-          <select
-            aria-label="Inventory connection"
-            value={selectedId}
-            disabled={busy}
-            onChange={(event) => {
-              setSelectedId(event.target.value);
-              setForm(null);
+        )}
+        {message && (
+          <p role="status" className="account-notice">
+            {message}
+          </p>
+        )}
+        {state && !state.encryptionConfigured && (
+          <p role="status" className="account-notice">
+            Inventory credentials need server encryption configuration before connections can be saved or
+            synchronised. Your deployment administrator must configure the inventory encryption key.
+          </p>
+        )}
+        <div className="business-actions">
+          <Button
+            disabled={unavailable}
+            onClick={() => {
+              setForm(emptyConnection());
               setMappingEdit(null);
-              setMappingPage(0);
-              setConfirmReplace(false);
               setError('');
-              setMessage('');
             }}
           >
-            {state.connections.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-                {!item.enabled && ' · Disabled'}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-      {connection && (
-        <>
-          <section className="business-form" aria-label="Selected inventory connection">
-            <h2>{connection.name}</h2>
+            New inventory connection
+          </Button>
+          <Button
+            disabled={busy || loading}
+            onClick={() => {
+              setError('');
+              void load();
+            }}
+          >
+            Refresh inventory
+          </Button>
+        </div>
+        {loading && <p role="status">Loading inventory connections…</p>}
+        <details className="account-details">
+          <summary>Supported inventory endpoint</summary>
+          <div className="business-form">
             <p className="account-muted">
-              Custom REST inventory snapshot · {connection.enabled ? 'Enabled' : 'Disabled'}
-              {' · '}
-              {connection.credentialConfigured ? 'Credential configured' : 'Credential missing'} · Revision{' '}
-              {connection.revision}
+              This connector reads a custom REST inventory snapshot from a public HTTPS endpoint using its
+              bearer access token. The endpoint must return JSON with schemaVersion equal to 1, generatedAt as
+              an ISO date and time, and an items array. Each item needs externalProductId, externalVariantId,
+              sku, currency, priceMinor, stockQuantity and availability. Prices use integer currency minor
+              units.
             </p>
-            <p className="account-muted" style={{ overflowWrap: 'anywhere' }}>
-              {connection.endpoint}
-            </p>
-            <p>Last completed synchronisation: {timestamp(connection.lastSyncedAt)}</p>
             <p className="account-muted">
-              Last source snapshot: {timestamp(connection.lastSourceGeneratedAt)}
+              The snapshot must contain exactly the configured mappings, up to 1,000 items and 1 MiB. It must
+              be newer than the last accepted snapshot and no more than 15 minutes old. Availability accepts
+              in_stock, made_to_order or out_of_stock; in-stock items require positive stock and out-of-stock
+              items require zero stock. Unknown references or mismatched SKUs reject the whole update.
             </p>
-            <div className="business-actions">
-              <Button
-                disabled={unavailable}
-                onClick={() => {
-                  setForm({
-                    id: connection.id,
-                    expectedRevision: connection.revision,
-                    name: connection.name,
-                    endpoint: connection.endpoint,
-                    enabled: connection.enabled,
-                    token: '',
-                  });
-                  setMappingEdit(null);
-                  setError('');
-                }}
-              >
-                Edit connection
-              </Button>
-              <Button
-                disabled={
-                  unavailable ||
-                  !connection.enabled ||
-                  !connection.credentialConfigured ||
-                  !mappings.length ||
-                  !!mappingEdit ||
-                  !!form
-                }
-                onClick={async () => {
-                  setBusy(true);
-                  setError('');
-                  setMessage('');
-                  try {
-                    const result = await accountRequest<{
-                      connection: InventoryConnection;
-                      run: InventoryRun;
-                    }>(`${base}/${connection.id}/sync`, {
-                      method: 'POST',
-                      body: { expectedRevision: connection.revision },
-                    });
-                    setMessage(
-                      `Synchronisation completed: ${result.run.itemCount} mapped inventory items updated.`,
-                    );
-                  } catch (reason) {
-                    setError(reason instanceof Error ? reason.message : 'Inventory synchronisation failed.');
-                  } finally {
-                    await load();
-                    setBusy(false);
-                  }
-                }}
-              >
-                {busy ? 'Working…' : 'Synchronise inventory now'}
-              </Button>
+          </div>
+        </details>
+        {form && (
+          <form
+            aria-label="Inventory connection form"
+            className="business-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (unavailable) return;
+              const submitted = { ...form };
+              setForm((current) => (current ? { ...current, token: '' } : null));
+              setBusy(true);
+              setError('');
+              setMessage('');
+              try {
+                await accountRequest(`${base}${submitted.id ? `/${submitted.id}` : ''}`, {
+                  method: submitted.id ? 'PATCH' : 'POST',
+                  body: {
+                    ...(submitted.id ? { expectedRevision: submitted.expectedRevision } : {}),
+                    name: submitted.name,
+                    endpoint: submitted.endpoint,
+                    enabled: submitted.enabled,
+                    ...(!submitted.id || submitted.token ? { token: submitted.token } : {}),
+                  },
+                });
+                setForm(null);
+                setMessage('Inventory connection saved. Review its mappings before synchronising.');
+                await load();
+              } catch (reason) {
+                setError(reason instanceof Error ? reason.message : 'Could not save this connection.');
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <h2>{form.id ? 'Edit inventory connection' : 'New inventory connection'}</h2>
+            <div className="business-form-grid">
+              <Field label="Connection name">
+                <input
+                  aria-label="Connection name"
+                  required
+                  maxLength={100}
+                  disabled={unavailable}
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                />
+              </Field>
+              <Field label="Inventory endpoint">
+                <input
+                  aria-label="Inventory endpoint"
+                  type="url"
+                  required
+                  pattern="https://.*"
+                  maxLength={2048}
+                  disabled={unavailable}
+                  value={form.endpoint}
+                  onChange={(event) => setForm({ ...form, endpoint: event.target.value })}
+                />
+              </Field>
+              <Field label={form.id ? 'Replacement access token (optional)' : 'Inventory access token'}>
+                <input
+                  aria-label={form.id ? 'Replacement access token (optional)' : 'Inventory access token'}
+                  type="password"
+                  autoComplete="new-password"
+                  required={!form.id}
+                  maxLength={4096}
+                  disabled={unavailable}
+                  value={form.token}
+                  onChange={(event) => setForm({ ...form, token: event.target.value })}
+                />
+              </Field>
+              <label className="business-checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.enabled}
+                  disabled={unavailable}
+                  onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
+                />
+                Connection enabled
+              </label>
             </div>
             <p className="account-muted">
-              Synchronisation updates mapped prices, stock and availability after full validation. It does not
-              reserve inventory. Unmapped or conflicting snapshots are rejected.
+              Use a public HTTPS endpoint that returns the supported inventory snapshot. Access tokens are
+              encrypted on the server and cleared from this form when submitted.
+              {form.id && ' Leave the replacement token blank to retain the existing credential.'}
             </p>
-          </section>
-          <section className="business-form" aria-label="Inventory product mappings">
-            <h2>Product mappings</h2>
-            <p className="account-muted">
-              {mappings.length} saved mappings. Match the provider’s exact product and variant references to
-              existing catalogue variants; provider SKUs must match your catalogue.
-            </p>
-            {!mappingEdit ? (
-              <>
+            <div className="business-actions">
+              <Button type="submit" variant="primary" disabled={unavailable}>
+                {busy ? 'Saving…' : 'Save inventory connection'}
+              </Button>
+              <Button type="button" disabled={busy} onClick={() => setForm(null)}>
+                Cancel connection edit
+              </Button>
+            </div>
+          </form>
+        )}
+        {!loading && state && !state.connections.length && (
+          <p className="account-empty">
+            No inventory connections yet. Add a supported retailer endpoint to begin. Catalogue CSV imports
+            remain available in Catalogue.
+          </p>
+        )}
+        {!!state?.connections.length && (
+          <Field label="Inventory connection">
+            <select
+              aria-label="Inventory connection"
+              value={selectedId}
+              disabled={busy}
+              onChange={(event) => {
+                setSelectedId(event.target.value);
+                setForm(null);
+                setMappingEdit(null);
+                setMappingPage(0);
+                setConfirmReplace(false);
+                setError('');
+                setMessage('');
+              }}
+            >
+              {state.connections.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                  {!item.enabled && ' · Disabled'}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        {connection && (
+          <>
+            <section className="business-form" aria-label="Selected inventory connection">
+              <h2>{connection.name}</h2>
+              <p className="account-muted">
+                Custom REST inventory snapshot · {connection.enabled ? 'Enabled' : 'Disabled'}
+                {' · '}
+                {connection.credentialConfigured ? 'Credential configured' : 'Credential missing'} · Revision{' '}
+                {connection.revision}
+              </p>
+              <p className="account-muted" style={{ overflowWrap: 'anywhere' }}>
+                {connection.endpoint}
+              </p>
+              <p>Last completed synchronisation: {timestamp(connection.lastSyncedAt)}</p>
+              <p className="account-muted">
+                Last source snapshot: {timestamp(connection.lastSourceGeneratedAt)}
+              </p>
+              <div className="business-actions">
                 <Button
                   disabled={unavailable}
                   onClick={() => {
-                    setMappingEdit({
-                      connectionId: connection.id,
+                    setForm({
+                      id: connection.id,
                       expectedRevision: connection.revision,
-                      rows: mappings.map((mapping) => ({
-                        key: crypto.randomUUID(),
-                        externalProductId: mapping.externalProductId,
-                        externalVariantId: mapping.externalVariantId,
-                        productId: mapping.productId,
-                        variantId: mapping.variantId,
-                      })),
+                      name: connection.name,
+                      endpoint: connection.endpoint,
+                      enabled: connection.enabled,
+                      token: '',
                     });
-                    setForm(null);
-                    setMappingPage(0);
-                    setConfirmReplace(false);
+                    setMappingEdit(null);
+                    setError('');
                   }}
                 >
-                  Edit inventory mappings
+                  Edit connection
                 </Button>
-                {mappings.slice(mappingPage * PAGE_SIZE, (mappingPage + 1) * PAGE_SIZE).map((mapping) => (
-                  <div
-                    className="business-import-result"
-                    key={`${mapping.externalProductId}:${mapping.externalVariantId}`}
+                <Button
+                  disabled={
+                    unavailable ||
+                    !connection.enabled ||
+                    !connection.credentialConfigured ||
+                    !mappings.length ||
+                    !!mappingEdit ||
+                    !!form
+                  }
+                  onClick={async () => {
+                    setBusy(true);
+                    setError('');
+                    setMessage('');
+                    try {
+                      const result = await accountRequest<{
+                        connection: InventoryConnection;
+                        run: InventoryRun;
+                      }>(`${base}/${connection.id}/sync`, {
+                        method: 'POST',
+                        body: { expectedRevision: connection.revision },
+                      });
+                      setMessage(
+                        `Synchronisation completed: ${result.run.itemCount} mapped inventory items updated.`,
+                      );
+                    } catch (reason) {
+                      setError(
+                        reason instanceof Error ? reason.message : 'Inventory synchronisation failed.',
+                      );
+                    } finally {
+                      await load();
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {busy ? 'Working…' : 'Synchronise inventory now'}
+                </Button>
+              </div>
+              <p className="account-muted">
+                Synchronisation updates mapped prices, stock and availability after full validation. It does
+                not reserve inventory. Unmapped or conflicting snapshots are rejected.
+              </p>
+            </section>
+            <section className="business-form" aria-label="Inventory product mappings">
+              <h2>Product mappings</h2>
+              <p className="account-muted">
+                {mappings.length} saved mappings. Match the provider’s exact product and variant references to
+                existing catalogue variants; provider SKUs must match your catalogue.
+              </p>
+              {!mappingEdit ? (
+                <>
+                  <Button
+                    disabled={unavailable}
+                    onClick={() => {
+                      setMappingEdit({
+                        connectionId: connection.id,
+                        expectedRevision: connection.revision,
+                        rows: mappings.map((mapping) => ({
+                          key: crypto.randomUUID(),
+                          externalProductId: mapping.externalProductId,
+                          externalVariantId: mapping.externalVariantId,
+                          productId: mapping.productId,
+                          variantId: mapping.variantId,
+                        })),
+                      });
+                      setForm(null);
+                      setMappingPage(0);
+                      setConfirmReplace(false);
+                    }}
                   >
-                    <strong>
-                      {mapping.externalProductId} / {mapping.externalVariantId}
-                    </strong>
-                    <p className="account-muted" style={{ overflowWrap: 'anywhere' }}>
-                      Catalogue product {mapping.productId} · Variant {mapping.variantId}
-                    </p>
-                  </div>
-                ))}
-                {mappings.length > PAGE_SIZE && (
-                  <MappingPages
-                    page={mappingPage}
-                    count={mappings.length}
-                    disabled={busy}
-                    onChange={setMappingPage}
-                  />
-                )}
-              </>
-            ) : (
-              <MappingEditor
-                catalogueBase={catalogueBase}
-                edit={mappingEdit}
-                page={mappingPage}
-                disabled={unavailable}
-                confirmReplace={confirmReplace}
-                onConfirmReplace={setConfirmReplace}
-                onPage={setMappingPage}
-                onChange={(next) => {
-                  setMappingEdit(next);
-                  setConfirmReplace(false);
-                }}
-                onCancel={() => {
-                  setMappingEdit(null);
-                  setMappingPage(0);
-                  setConfirmReplace(false);
-                }}
-                onSave={async () => {
-                  setBusy(true);
-                  setError('');
-                  setMessage('');
-                  try {
-                    await accountRequest(`${base}/${mappingEdit.connectionId}/mappings`, {
-                      method: 'PUT',
-                      body: {
-                        expectedRevision: mappingEdit.expectedRevision,
-                        mappings: mappingEdit.rows.map(
-                          ({ externalProductId, externalVariantId, productId, variantId }) => ({
-                            externalProductId,
-                            externalVariantId,
-                            productId,
-                            variantId,
-                          }),
-                        ),
-                      },
-                    });
+                    Edit inventory mappings
+                  </Button>
+                  {mappings.slice(mappingPage * PAGE_SIZE, (mappingPage + 1) * PAGE_SIZE).map((mapping) => (
+                    <div
+                      className="business-import-result"
+                      key={`${mapping.externalProductId}:${mapping.externalVariantId}`}
+                    >
+                      <strong>
+                        {mapping.externalProductId} / {mapping.externalVariantId}
+                      </strong>
+                      <p className="account-muted" style={{ overflowWrap: 'anywhere' }}>
+                        Catalogue product {mapping.productId} · Variant {mapping.variantId}
+                      </p>
+                    </div>
+                  ))}
+                  {mappings.length > PAGE_SIZE && (
+                    <MappingPages
+                      page={mappingPage}
+                      count={mappings.length}
+                      disabled={busy}
+                      onChange={setMappingPage}
+                    />
+                  )}
+                </>
+              ) : (
+                <MappingEditor
+                  catalogueBase={catalogueBase}
+                  edit={mappingEdit}
+                  page={mappingPage}
+                  disabled={unavailable}
+                  confirmReplace={confirmReplace}
+                  onConfirmReplace={setConfirmReplace}
+                  onPage={setMappingPage}
+                  onChange={(next) => {
+                    setMappingEdit(next);
+                    setConfirmReplace(false);
+                  }}
+                  onCancel={() => {
                     setMappingEdit(null);
                     setMappingPage(0);
                     setConfirmReplace(false);
-                    setMessage(
-                      'Inventory mappings replaced. You can now synchronise a matching source snapshot.',
-                    );
-                    await load();
-                  } catch (reason) {
-                    setError(reason instanceof Error ? reason.message : 'Could not save inventory mappings.');
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              />
-            )}
-          </section>
-          <section className="business-form" aria-label="Inventory synchronisation history">
-            <h2>Synchronisation history</h2>
-            {!runs.length && <p className="account-muted">No synchronisation runs recorded.</p>}
-            {runs.map((run) => (
-              <div className="business-import-result" key={run.id}>
-                <strong>
-                  {run.status === 'completed' ? 'Completed' : 'Failed'} · {timestamp(run.createdAt)}
-                </strong>
-                <p>
-                  {run.itemCount} items{run.errorCode ? ` · ${run.errorCode.replaceAll('_', ' ')}` : ''}
-                </p>
-              </div>
-            ))}
-          </section>
-        </>
-      )}
-    </section>
+                  }}
+                  onSave={async () => {
+                    setBusy(true);
+                    setError('');
+                    setMessage('');
+                    try {
+                      await accountRequest(`${base}/${mappingEdit.connectionId}/mappings`, {
+                        method: 'PUT',
+                        body: {
+                          expectedRevision: mappingEdit.expectedRevision,
+                          mappings: mappingEdit.rows.map(
+                            ({ externalProductId, externalVariantId, productId, variantId }) => ({
+                              externalProductId,
+                              externalVariantId,
+                              productId,
+                              variantId,
+                            }),
+                          ),
+                        },
+                      });
+                      setMappingEdit(null);
+                      setMappingPage(0);
+                      setConfirmReplace(false);
+                      setMessage(
+                        'Inventory mappings replaced. You can now synchronise a matching source snapshot.',
+                      );
+                      await load();
+                    } catch (reason) {
+                      setError(
+                        reason instanceof Error ? reason.message : 'Could not save inventory mappings.',
+                      );
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                />
+              )}
+            </section>
+            <section className="business-form" aria-label="Inventory synchronisation history">
+              <h2>Synchronisation history</h2>
+              {!runs.length && <p className="account-muted">No synchronisation runs recorded.</p>}
+              {runs.map((run) => (
+                <div className="business-import-result" key={run.id}>
+                  <strong>
+                    {run.status === 'completed' ? 'Completed' : 'Failed'} · {timestamp(run.createdAt)}
+                  </strong>
+                  <p>
+                    {run.itemCount} items{run.errorCode ? ` · ${run.errorCode.replaceAll('_', ' ')}` : ''}
+                  </p>
+                </div>
+              ))}
+            </section>
+          </>
+        )}
+      </section>
+    </>
   );
 }
 

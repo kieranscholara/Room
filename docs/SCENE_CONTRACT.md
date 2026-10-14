@@ -1,5 +1,13 @@
 # Canonical scene contract
 
+## Consumer ownership extension
+
+Scene schema remains v2 with the same metres, axes, dimensions, operations and independent locks. Retailer scenes still use the organisation UUID. Separately stored consumer scenes use `organisationId = consumer:<owner UUID>`; this namespace is immutable in the checked consumer commit. Do not send a consumer scene to retailer commit RPCs.
+
+`consumer_projects`, `consumer_scene_versions` and `consumer_proposals` have owner-only access; proposals retain engine/base/approved-result fingerprints and expire after 15 minutes. Accept checks the owned scene version and revalidates newly admitted published variant metadata. Historical accepted furniture remains a measured snapshot after unpublication; its presence does not authorise new placements or a new retailer enquiry. Prices, product photographs and AI text remain outside the canonical scene.
+
+A consented enquiry makes a separate retailer scene with a new scene ID, retailer organisation UUID and version zero. It includes only that retailer's selected objects and the measured room. Cross-retailer groups/follower links are removed safely before geometry validation. Original consumer persistence is unchanged.
+
 ## Implementation update — 14 October 2026
 
 The approved alignment keeps schema v2, saved object fields and metre/radian coordinates unchanged. Pricing, quotation records, inventory mappings and asset URLs remain outside canonical scene JSON. The baseline contract below remains applicable except for explicitly superseded future-only statements.

@@ -6,6 +6,9 @@ import { Button, Field } from '@roomsell/ui';
 import { isCatalogueVariantAvailable, type SelectedProjectProducts } from '@roomsell/catalogue';
 import { Editor } from './editor';
 import { ProjectQuotations } from './project-quotations';
+import { ProjectReferences } from './project-references';
+import { ProjectAssistant } from './project-assistant';
+import { ProjectOrders } from './project-orders';
 import { useEditor } from '../lib/editor-store';
 import { AccountRequestError, accountRequest, type OrganisationRole } from './workspace-frame';
 import { formatMoney, type CatalogueProduct, type ProjectRecord } from './workspace-business-types';
@@ -23,6 +26,7 @@ interface CustomerMember {
 interface Access {
   userId: string;
   canEdit: boolean;
+  canOrder: boolean;
 }
 export function ProjectEditor({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -67,12 +71,20 @@ export function ProjectEditor({ projectId }: { projectId: string }) {
       />
       <div className="project-business-tools">
         <ProjectProducts key={projectId} project={project} />
+        <ProjectAssistant
+          key={`assistant-${projectId}`}
+          projectId={projectId}
+          canEdit={project.canEdit}
+          staff={project.role !== 'customer'}
+        />
+        <ProjectReferences key={`photos-${projectId}`} projectId={projectId} canEdit={project.canEdit} />
         <ProjectQuotations
           key={`quotes-${projectId}`}
           projectId={projectId}
           organisationId={project.organisationId}
           role={project.role}
         />
+        <ProjectOrders key={`orders-${projectId}`} projectId={projectId} />
         {['owner', 'admin'].includes(project.role) && <ProjectAccess project={project} />}
         <Link
           className="business-text-link"
@@ -420,6 +432,7 @@ function ProjectAccess({ project }: { project: ProjectDetails }) {
   const [access, setAccess] = useState<Access[]>([]);
   const [userId, setUserId] = useState('');
   const [canEdit, setCanEdit] = useState(false);
+  const [canOrder, setCanOrder] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -467,7 +480,7 @@ function ProjectAccess({ project }: { project: ProjectDetails }) {
           try {
             await accountRequest(`/api/projects/${project.id}/access`, {
               method: 'POST',
-              body: { userId, canEdit },
+              body: { userId, canEdit, canOrder },
             });
             setMessage('Project access saved.');
             await load();
@@ -506,6 +519,16 @@ function ProjectAccess({ project }: { project: ProjectDetails }) {
             onChange={(event) => setCanEdit(event.target.checked)}
           />
           Allow this customer to edit their design
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            aria-label="Allow this customer to place orders"
+            checked={canOrder}
+            onChange={(event) => setCanOrder(event.target.checked)}
+            disabled={busy}
+          />{' '}
+          Allow this customer to place orders
         </label>
         <Button variant="primary" type="submit" disabled={busy || !userId}>
           Save customer access

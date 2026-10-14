@@ -181,3 +181,24 @@ describe('editor request ownership during project navigation', () => {
     },
   );
 });
+
+describe('durable worker proposal review', () => {
+  it('reviews only a proposal for the current scene and endpoint', () => {
+    expect(useEditor.getState().reviewProposal(proposal('old'), '/api/projects/old/scene')).toBe(true);
+    expect(useEditor.getState().proposal?.id).toBe('proposal-old');
+  });
+  it('rejects a different project or tenant without replacing state', () => {
+    expect(useEditor.getState().reviewProposal(proposal('new'), '/api/projects/old/scene')).toBe(false);
+    expect(useEditor.getState().reviewProposal(proposal('old'), '/api/projects/new/scene')).toBe(false);
+    expect(useEditor.getState().proposal).toBeNull();
+  });
+  it('rejects stale versions and a pending or busy edit', () => {
+    const stale = proposal('old');
+    stale.baseVersion = 1;
+    expect(useEditor.getState().reviewProposal(stale, '/api/projects/old/scene')).toBe(false);
+    useEditor.setState({ busy: true });
+    expect(useEditor.getState().reviewProposal(proposal('old'), '/api/projects/old/scene')).toBe(false);
+    useEditor.setState({ busy: false, proposal: proposal('old') });
+    expect(useEditor.getState().reviewProposal(proposal('old'), '/api/projects/old/scene')).toBe(false);
+  });
+});

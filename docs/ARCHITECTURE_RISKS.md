@@ -1,5 +1,19 @@
 # Architecture risk register
 
+## Current residual risks after the six-area increment
+
+The historical risk register below is preserved; its missing-feature statements are superseded by this section and CURRENT_STATE.md.
+
+| Risk                                                 | Mitigation now                                                                                         | Remaining boundary                                                                                                                                                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hosted accounts/provider credentials unavailable     | Fully local test stack, strict test adapter and managed deployment files                               | No live OpenAI, hosted email, public deployment or hosted restore is claimed.                                                                                                                                 |
+| Snapshot feeds can resurrect locally fulfilled stock | Migration 015 blocks real mapped-stock fulfilment; fictional simulator acknowledges fixture fulfilment | Implement and contract-test a chosen provider's outbound order acknowledgement before enabling real integrated fulfilment.                                                                                    |
+| AI hallucination/stale input                         | Strict schema, catalogue/stock/pricing/actor/version checks and checked previews                       | Live model quality, latency and real-photo acceptance require an OpenAI account. Suggestions are estimates, not quotes.                                                                                       |
+| Cross-consumer/retailer exposure                     | Separate owner RLS, public allowlisted DTO, selected-image publication and explicit subset enquiry     | Review platform moderation, account deletion/export and legal consent policy before public launch.                                                                                                            |
+| Operational capacity                                 | One job per authenticated cron call, two-minute lease, bounded retries/quotas and health endpoint      | Minute cron requires a supported hosting plan; monitor queue age and failed jobs. No throughput SLA/load testing is claimed.                                                                                  |
+| Request/storage bounds                               | Image decoding limits; local source uploads at most 10 MiB                                             | Vercel function body limits are lower: prepare smaller files or implement direct staged uploads before larger hosted uploads. Storage lifecycle is bounded cleanup, not a complete retention/deletion policy. |
+| Search/history growth                                | Bounded scenes/previews, 20 personal rooms, 50-offer pages                                             | Public filtering currently occurs within each page; full text search, global relevance and high-volume batching are future work.                                                                              |
+
 ## Risk status after approved implementation — 14 October 2026
 
 The original risk evidence against `660d52f887eb396506e76401145ee99e0a93de8d` remains below. This table describes source changes since approval. Full combined gates are pending, so “addressed in code” does not waive hosted operational validation.

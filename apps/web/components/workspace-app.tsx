@@ -5,12 +5,19 @@ import { CustomerPanel } from './customer-panel';
 import { ProjectsPanel } from './projects-panel';
 import { PricingPanel } from './pricing-panel';
 import { InventoryPanel } from './inventory-panel';
+import { PublicationPanel } from './publication-panel';
 import './workspace-business.css';
 
 export function WorkspaceApp() {
   return (
     <WorkspaceFrame
       panels={[
+        {
+          id: 'publication',
+          label: 'Marketplace',
+          roles: ['owner', 'admin'],
+          render: (context) => <PublicationPanel context={context} />,
+        },
         {
           id: 'pricing',
           label: 'Pricing',

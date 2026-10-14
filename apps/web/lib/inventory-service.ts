@@ -17,6 +17,7 @@ import {
 } from '@roomsell/inventory/server';
 import { adminClient, databaseError, membership } from './supabase-server';
 import { ServiceError } from './editor-service';
+import { fixtureTransport } from './local-testing';
 
 const managers = ['owner', 'admin'] as const;
 const tokenSchema = z
@@ -153,7 +154,8 @@ export async function writeInventoryConnection(orgId: string, connectionId: stri
   const config = connectionId ? updateSchema.parse(input) : createSchema.parse(input);
   try {
     const endpoint = inventoryEndpoint(config.endpoint).toString();
-    await resolveInventoryEndpoint(endpoint);
+    if (!connectionId || !(await fixtureTransport(orgId, connectionId, endpoint)))
+      await resolveInventoryEndpoint(endpoint);
     if (connectionId) {
       const current = await currentConnection(client, orgId, connectionId);
       if (inventoryEndpoint(current.endpoint).origin !== inventoryEndpoint(endpoint).origin && !config.token)
@@ -199,7 +201,33 @@ export async function replaceInventoryMappings(orgId: string, connectionId: stri
   return connectionDto(saved.data as ConnectionRow, true);
 }
 export async function syncInventoryConnection(orgId: string, connectionId: string, input: unknown) {
-  const { user, client } = await membership(orgId, managers);
+  const context = await membership(orgId, managers);
+  return syncInventoryAuthorised(orgId, connectionId, input, context);
+}
+export async function syncInventoryForActor(
+  orgId: string,
+  connectionId: string,
+  input: unknown,
+  actorId: string,
+) {
+  const client = adminClient();
+  const role = await client
+    .from('organisation_members')
+    .select('role')
+    .eq('organisation_id', orgId)
+    .eq('user_id', actorId)
+    .maybeSingle();
+  databaseError(role.error);
+  if (!role.data || !managers.includes(role.data.role))
+    throw new ServiceError(403, 'Current inventory manager permission required.');
+  return syncInventoryAuthorised(orgId, connectionId, input, { client, user: { id: actorId } });
+}
+async function syncInventoryAuthorised(
+  orgId: string,
+  connectionId: string,
+  input: unknown,
+  { user, client }: { user: { id: string }; client: ReturnType<typeof adminClient> },
+) {
   const key = requiredEncryptionKey();
   const { expectedRevision } = revisionSchema.parse(input);
   const connection = await currentConnection(client, orgId, connectionId);
@@ -225,6 +253,7 @@ export async function syncInventoryConnection(orgId: string, connectionId: strin
     if (!credentials.data?.token_envelope) throw new InventoryError('credentials_unavailable');
     const token = decryptInventoryToken(credentials.data.token_envelope, key, orgId);
     const snapshot = await fetchInventorySnapshot(connection.endpoint, token, {
+      transport: await fixtureTransport(orgId, connectionId, connection.endpoint),
       lastGeneratedAt: connection.last_source_generated_at,
     });
     const mapped = mapSnapshot(

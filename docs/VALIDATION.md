@@ -1,3 +1,31 @@
+# Six-area platform validation — 14 October 2026
+
+Executed in the same local cloud checkout with Node 24.19/npm 11.9, Next 16.4, PostgreSQL 17.11, Supabase CLI 2.120 and system Chromium. The earlier checkpoints below are historical; current results supersede their missing-feature statements.
+
+| Check                                           | Result                                                                                                                                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint / strict TypeScript / Prettier             | Passed.                                                                                                                                                                                                       |
+| Unit/property/service/contract tests            | **235 passed**; 54 database cases deliberately skipped here and executed separately.                                                                                                                          |
+| Real local database security/integrity          | **54 passed**, zero skipped (15 foundation, 10 quotations, 8 inventory, 21 new platform tests).                                                                                                               |
+| Production build and combined browser/API suite | **30 passed**, zero failed/skipped; existing editor/3D tests plus three full platform journeys.                                                                                                               |
+| Dependency audit                                | **0 vulnerabilities**, no new dependencies added in this increment.                                                                                                                                           |
+| Repeat local setup/migrations                   | Passed without reset, all 16 forward migrations current.                                                                                                                                                      |
+| Fictional seed repeatability                    | Two consecutive default-seed runs passed, preserving existing scenes, inventory and publication decisions. Browser scenarios use separate fixture accounts/state.                                             |
+| Disabled local features                         | Separate production-mode server returned 404 for `/demo`, demo API/history, `/testing` and test status with both flags disabled; anonymous session 401 and database health 200.                               |
+| Deployment output tracing                       | 69 server traces inspected; **zero private local files** included (fixture credentials/tokens, `.env.local`, local runtime).                                                                                  |
+| Backup and isolated restore                     | Final snapshot restored **32 public tables and 33 asset files**; row counts and SHA-256 byte round trips matched, original database unchanged. Temporary database/bucket are separately owned.                |
+| Visual review                                   | Reviewed real browser screenshots for fictional retailer consultation/photos/advice/orders and privately owned consumer design/enquiry; existing renderer suite tests real WebGL models/proxies and fallback. |
+
+The new browser journey uploads a private photo, queues checked test advice, recovers the durable result after reload, reviews/accepts a preview, preserves the fully locked wardrobe exactly, issues a quote, reserves/confirms as a customer and fulfils as staff. A queued simulated feed sync retains the decremented quantities. The consumer journey accepts published furniture, renders 3D proxies, reloads identical saved state, requires explicit enquiry consent, and denies unrelated retailer/customer access to personal/private projects. Public image delivery immediately returns 404 after unpublication.
+
+New database cases verify actual Auth/RLS/Storage, staged-image path rejection, deduplication, concurrent worker claims, old-lease rejection, bounded retry and permission revocation; direct write denial; order race/expiry/ownership/snapshot integrity/aggregate stock; rejection of real snapshot-only provider fulfilment; publication consent; private consumer CAS/current-SKU/aggregate stock and selected-retailer enquiry. Unit tests cover strict AI intent, stock/tax/fee budget/lock checks, bounded provider parsing, nonredirecting transport, error classifications and safe hosted origin configuration. No numerical coverage percentage is claimed.
+
+Initial failures were corrected fixture/assertion issues (service-role direct mutations deliberately disallowed by SQL; strict pricing item projection; expected inaccessible-project status 404) and a duplicate JSX key caught by typechecking. The final combined run above passed. Database protections were preserved rather than relaxed for fixture cleanup.
+
+**External work not verified:** user has no Vercel/Supabase projects; live OpenAI has no configured key. No real retailer endpoint, outbound order acknowledgement, hosted email/SMTP, managed alerts, hosted Auth recovery/PITR/asset restore, remote CI or fresh cloud snapshot restoration was exercised. Local provider/hosting files and documentation are prepared; local success does not establish those external outcomes. See DEPLOYMENT.md, CURRENT_STATE.md and TEST_CUSTOMER.md.
+
+---
+
 # Architecture steps 1–4 validation — 14 October 2026
 
 Executed in `/workspace/Room` with Node.js 24.19.0/npm 11.9.0, Next.js 16.4.0, PostgreSQL 17.11, Supabase CLI 2.120.0 and system Chromium. The historical milestone checkpoint is preserved below.

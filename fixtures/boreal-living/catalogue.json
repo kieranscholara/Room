@@ -1,0 +1,145 @@
+{
+  "fictional": true,
+  "company": "Boreal Living \u2014 Fictional Test Retailer",
+  "currency": "EUR",
+  "products": [
+    {
+      "sku": "BL-ASTER",
+      "name": "Aster natural oak bed",
+      "category": "bed",
+      "currency": "EUR",
+      "priceMinor": 74900,
+      "dimensions": {
+        "width": 1.6,
+        "depth": 2,
+        "height": 1.1
+      },
+      "color": "#b89372",
+      "material": "Illustrative fictional retailer product",
+      "active": true,
+      "availability": "in_stock",
+      "stockQuantity": 3,
+      "leadTimeDays": 7,
+      "variants": [],
+      "fixtureImage": "bed.png"
+    },
+    {
+      "sku": "BL-LINEN",
+      "name": "Linen upholstered bed",
+      "category": "bed",
+      "currency": "EUR",
+      "priceMinor": 89900,
+      "dimensions": {
+        "width": 1.8,
+        "depth": 2.1,
+        "height": 1.15
+      },
+      "color": "#c9beab",
+      "material": "Illustrative fictional retailer product",
+      "active": true,
+      "availability": "made_to_order",
+      "stockQuantity": 0,
+      "leadTimeDays": 7,
+      "variants": [],
+      "fixtureImage": "bed.png"
+    },
+    {
+      "sku": "BL-FJORD",
+      "name": "Fjord oak wardrobe",
+      "category": "wardrobe",
+      "currency": "EUR",
+      "priceMinor": 64900,
+      "dimensions": {
+        "width": 1.6,
+        "depth": 0.6,
+        "height": 2.1
+      },
+      "color": "#967653",
+      "material": "Illustrative fictional retailer product",
+      "active": true,
+      "availability": "in_stock",
+      "stockQuantity": 2,
+      "leadTimeDays": 7,
+      "variants": [],
+      "fixtureImage": "wardrobe.png"
+    },
+    {
+      "sku": "BL-PINE",
+      "name": "Pine oak bedside",
+      "category": "bedside",
+      "currency": "EUR",
+      "priceMinor": 11900,
+      "dimensions": {
+        "width": 0.5,
+        "depth": 0.4,
+        "height": 0.55
+      },
+      "color": "#b49470",
+      "material": "Illustrative fictional retailer product",
+      "active": true,
+      "availability": "in_stock",
+      "stockQuantity": 8,
+      "leadTimeDays": 7,
+      "variants": [],
+      "fixtureImage": "bedside.png"
+    },
+    {
+      "sku": "BL-MIRA",
+      "name": "Mira woven rug",
+      "category": "rug",
+      "currency": "EUR",
+      "priceMinor": 9900,
+      "dimensions": {
+        "width": 2.4,
+        "depth": 2,
+        "height": 0.02
+      },
+      "color": "#ded6c9",
+      "material": "Illustrative fictional retailer product",
+      "active": true,
+      "availability": "in_stock",
+      "stockQuantity": 5,
+      "leadTimeDays": 7,
+      "variants": []
+    },
+    {
+      "sku": "BL-COVE",
+      "name": "Cove oak desk",
+      "category": "desk",
+      "currency": "EUR",
+      "priceMinor": 18900,
+      "dimensions": {
+        "width": 1.2,
+        "depth": 0.6,
+        "height": 0.75
+      },
+      "color": "#bd9b77",
+      "material": "Illustrative fictional retailer product",
+      "active": true,
+      "availability": "in_stock",
+      "stockQuantity": 4,
+      "leadTimeDays": 7,
+      "variants": []
+    },
+    {
+      "sku": "BL-NIGHT",
+      "name": "Nightfall oak bedside",
+      "category": "bedside",
+      "currency": "EUR",
+      "priceMinor": 15900,
+      "dimensions": {
+        "width": 0.5,
+        "depth": 0.4,
+        "height": 0.55
+      },
+      "color": "#554338",
+      "material": "Illustrative fictional retailer product",
+      "active": true,
+      "availability": "out_of_stock",
+      "stockQuantity": 0,
+      "leadTimeDays": 7,
+      "variants": [],
+      "fixtureImage": "bedside.png"
+    }
+  ]
+}

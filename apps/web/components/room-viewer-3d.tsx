@@ -87,7 +87,12 @@ function boundedResolutions(
   return resolutions;
 }
 
-function useProjectModels(projectId: string | undefined, scene: Scene, refresh: number) {
+function useProjectModels(
+  projectId: string | undefined,
+  scene: Scene,
+  refresh: number,
+  productsEndpoint?: string,
+) {
   const [catalogue, setCatalogue] = useState<{ projectId: string; products: SelectedProjectProducts } | null>(
     null,
   );
@@ -101,12 +106,15 @@ function useProjectModels(projectId: string | undefined, scene: Scene, refresh: 
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/products`, {
-          signal: controller.signal,
-          cache: 'no-store',
-          credentials: 'same-origin',
-          redirect: 'error',
-        });
+        const response = await fetch(
+          productsEndpoint ?? `/api/projects/${encodeURIComponent(projectId)}/products`,
+          {
+            signal: controller.signal,
+            cache: 'no-store',
+            credentials: 'same-origin',
+            redirect: 'error',
+          },
+        );
         if (!response.ok)
           throw new Error('Selected model assets could not be verified. Exact dimension proxies are shown.');
         const products = (await response.json()) as SelectedProjectProducts;
@@ -121,7 +129,7 @@ function useProjectModels(projectId: string | undefined, scene: Scene, refresh: 
       }
     })();
     return () => controller.abort();
-  }, [projectId, savedVersion, scene.id, refresh]);
+  }, [projectId, savedVersion, scene.id, refresh, productsEndpoint]);
   const products = catalogue && catalogue.projectId === projectId ? catalogue.products : null;
   const resolutions = useMemo(() => boundedResolutions(scene, products), [scene, products]);
   const requests = new Map<string, { asset: ProjectCatalogueAsset; dimensions: SceneObject['dimensions'] }>();
@@ -433,16 +441,21 @@ class ViewerBoundary extends Component<{ children: ReactNode; fallback: ReactNod
 /** A derived, read-only renderer: selection/camera state can change; canonical objects cannot. */
 export default function RoomViewer3D({
   projectId,
+  sceneEndpoint,
+  productsEndpoint,
   comparing = null,
   onUnavailable,
 }: {
   projectId?: string;
+  productsEndpoint?: string;
+  sceneEndpoint?: string;
   comparing?: Scene | null;
   onUnavailable?: () => void;
 }) {
   const { scene: saved, proposal, selectedId, select, endpoint } = useEditor();
   const scene = proposal?.scene ?? saved;
-  const expectedEndpoint = projectId ? `/api/projects/${encodeURIComponent(projectId)}/scene` : '/api/scene';
+  const expectedEndpoint =
+    sceneEndpoint ?? (projectId ? `/api/projects/${encodeURIComponent(projectId)}/scene` : '/api/scene');
   if (!scene || endpoint !== expectedEndpoint)
     return (
       <div className="canvas-loading" role="status">
@@ -455,6 +468,7 @@ export default function RoomViewer3D({
       scene={scene}
       comparing={comparing}
       projectId={projectId}
+      productsEndpoint={productsEndpoint}
       selectedId={selectedId}
       onSelect={select}
       movedIds={proposal?.movedIds ?? []}
@@ -465,6 +479,7 @@ export default function RoomViewer3D({
 }
 function MeasuredViewer({
   scene,
+  productsEndpoint,
   comparing,
   projectId,
   selectedId,
@@ -476,6 +491,7 @@ function MeasuredViewer({
   scene: Scene;
   comparing: Scene | null;
   projectId?: string;
+  productsEndpoint?: string;
   selectedId: string;
   onSelect: (id: string) => void;
   movedIds: string[];
@@ -483,7 +499,12 @@ function MeasuredViewer({
   onUnavailable?: () => void;
 }) {
   const [modelRefresh, setModelRefresh] = useState(0);
-  const { resolutions, loaded, catalogueError } = useProjectModels(projectId, scene, modelRefresh);
+  const { resolutions, loaded, catalogueError } = useProjectModels(
+    projectId,
+    scene,
+    modelRefresh,
+    productsEndpoint,
+  );
   const [ready, setReady] = useState(false);
   const [contextLost, setContextLost] = useState(false);
   const [fullWalls, setFullWalls] = useState(false);

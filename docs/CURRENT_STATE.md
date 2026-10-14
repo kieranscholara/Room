@@ -1,5 +1,20 @@
 # Current state: evidence-based audit
 
+## Current six-area delivery
+
+This section supersedes the earlier implementation checkpoint below. Validation evidence and exact executed counts are in [VALIDATION.md](VALIDATION.md).
+
+| Area                 | Actual implementation                                                                                                                                               | Status / remaining external work                                                                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inventory            | Existing secure custom REST adapter; manual or durable queued sync; Boreal Living simulator with real mappings                                                      | PARTIAL: local customer path works; a real retailer endpoint, credentials and provider acceptance remain required.                                                      |
+| Private photographs  | Validated project-scoped uploads, RLS/private streaming, removal and cleanup jobs                                                                                   | READY for supported bounded local workflow; hosted request-size and retention acceptance still required.                                                                |
+| AI                   | Strict intentions; verified catalogue, exact tax/fee budgets and stock; explicit photo consent; normal preview/accept; local adapter and OpenAI Responses transport | PARTIAL: test adapter verified; live OpenAI key/account and provider acceptance pending.                                                                                |
+| Jobs/orders          | Durable leases/retries/deduplication/revocation; 15-minute reservations, confirm/cancel/fulfil, immutable quote snapshot, aggregate stock transactions              | READY locally for manual stock and the fictional simulator. Real snapshot-feed fulfilment is blocked pending upstream acknowledgement. No payment/shipping integration. |
+| Managed operations   | Vercel configuration; Supabase migrations; HTTPS origin/cookies; health endpoint; authenticated worker; verified isolated local restore                             | PARTIAL: user has no hosting projects yet. Production accounts, SMTP, alerts, backups/retention and hosted restore drill remain external rollout gates.                 |
+| Consumer marketplace | Explicit admin publication/image consent, private consumer ownership, shared editor/3D proxies, selected-retailer enquiry                                           | READY for tested bounded workflow; production moderation, search scale, legal terms and commerce breadth remain separate scope.                                         |
+
+New tests: `tests/assistant.test.ts`, worker proposal checks in `tests/editor-store.test.ts`, `tests/platform-database.test.ts`, `tests/e2e/platform-workflow.spec.ts`. The test retailer guide is [TEST_CUSTOMER.md](TEST_CUSTOMER.md).
+
 ## Current implementation update — 14 October 2026
 
 Implementation has been approved. The audit against `660d52f887eb396506e76401145ee99e0a93de8d` is retained below as historical evidence. The source-backed changes in this section supersede baseline missing-feature statements. Implementation validation is recorded in [VALIDATION.md](VALIDATION.md); local checks do not certify hosted production operations.

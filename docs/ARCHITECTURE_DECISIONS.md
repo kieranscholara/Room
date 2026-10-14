@@ -1,6 +1,6 @@
 # Architecture decision proposals
 
-ADR-001–003 were accepted by the user’s implementation approval on 14 October 2026. The existing app, workspace and scene contract are retained. ADR-004 remains a future marketplace design proposal; no marketplace/publication schema was introduced.
+ADR-001–003 were accepted by the user’s implementation approval on 14 October 2026. The existing app, workspace and scene contract are retained. ADR-004 was accepted by the subsequent explicit six-area implementation request. Its initial publication/consumer ownership workflow is now implemented and locally tested in migrations 013/016; hosted rollout remains gated.
 
 ## ADR-001 — Keep the existing modular monolith; extract orchestration only for a real worker
 

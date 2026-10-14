@@ -138,6 +138,9 @@ export function WorkspaceFrame({ panels = [] }: { panels?: WorkspacePanel[] }) {
         <Link href="/workspace" className="account-brand">
           <Layers size={25} /> roomsell<span>AI</span>
         </Link>
+        <Link href="/marketplace" className="business-text-link">
+          Consumer marketplace
+        </Link>
         <span className="account-session">{user.email}</span>
         <Button
           disabled={logoutBusy}

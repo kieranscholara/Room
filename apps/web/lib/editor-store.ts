@@ -29,6 +29,7 @@ interface Store {
   setMode(mode: 'manual' | 'smart'): void;
   preview(operation: Operation, immediate?: boolean): Promise<void>;
   accept(): Promise<void>;
+  reviewProposal(proposal: Proposal, endpoint: string): boolean;
   cancel(): void;
   history(action: 'undo' | 'redo'): Promise<void>;
 }
@@ -74,6 +75,25 @@ export const useEditor = create<Store>()(
       await scopedTask(scope, task);
     }
     return {
+      reviewProposal: (proposal, endpoint) => {
+        const state = get();
+        if (
+          state.endpoint !== endpoint ||
+          state.busy ||
+          state.proposal ||
+          !state.scene ||
+          proposal.baseVersion !== state.scene.version ||
+          proposal.scene.id !== state.scene.id ||
+          proposal.scene.organisationId !== state.scene.organisationId ||
+          proposal.scene.version !== state.scene.version
+        )
+          return false;
+        set((s) => {
+          s.proposal = structuredClone(proposal);
+          s.error = null;
+        });
+        return true;
+      },
       endpoint: '/api/scene',
       scene: null,
       proposal: null,

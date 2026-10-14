@@ -46,7 +46,10 @@ export async function jsonBody(
 }
 export async function api<T>(task: () => Promise<T>, status = 200) {
   try {
-    return NextResponse.json(await task(), { status, headers: { 'Cache-Control': 'private, no-store' } });
+    const result = await task();
+    return result instanceof Response
+      ? result
+      : NextResponse.json(result, { status, headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     if (isServiceError(error))
       return NextResponse.json(

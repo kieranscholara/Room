@@ -11,10 +11,14 @@ export async function GET(_request: NextRequest, { params }: Context) {
     const { client } = await membership(context.project.organisation_id, ['owner', 'admin']);
     const result = await client
       .from('project_access')
-      .select('user_id,can_edit')
+      .select('user_id,can_edit,can_order')
       .eq('project_id', context.project.id);
     databaseError(result.error);
-    return (result.data || []).map((a) => ({ userId: a.user_id, canEdit: a.can_edit }));
+    return (result.data || []).map((a) => ({
+      userId: a.user_id,
+      canEdit: a.can_edit,
+      canOrder: a.can_order,
+    }));
   });
 }
 export async function POST(request: NextRequest, { params }: Context) {
@@ -27,6 +31,7 @@ export async function POST(request: NextRequest, { params }: Context) {
       p_project_id: context.project.id,
       p_user_id: body.userId,
       p_can_edit: body.canEdit,
+      p_can_order: body.canOrder,
     });
     databaseError(result.error);
     return result.data;

@@ -1,5 +1,11 @@
 # Known limitations
 
+## Current platform boundary
+
+The six-area increment supersedes older missing-feature statements below. Private references, bounded AI/OpenAI transport, durable jobs, reservation/order lifecycle and owned consumer publication/enquiry are implemented locally. Live OpenAI, real retailer provider acceptance, managed projects/email/monitoring/hosted restore remain unconfigured. Real snapshot-only stock providers cannot fulfil orders until outbound acknowledgement exists. No payments, billing, shipping, global marketplace search/moderation or 3D mesh editing is included. Hosted request-size limits and commercial retention need deployment acceptance. See CURRENT_STATE.md and DEPLOYMENT.md for current evidence and operating limits.
+
+## Earlier checkpoint limitations (historical)
+
 - Architecture roadmap steps 1–4 are implemented; actual retailer feed configuration, hosted production rollout, room references, AI, reservations/orders, marketplace, billing and durable workers remain future work.
 - Rooms are rectangular, 2–30 m wide/deep and 2–6 m high; one room/scene per project. A scene supports up to 30 objects, 15 rigid groups and 50 each of zones/openings. Non-rectangular/multiple rooms are unsupported.
 - Door swings and window access use conservative rectangular envelopes. Explicit person-marked circulation zones are checked; automatic passage/reachability analysis is absent.

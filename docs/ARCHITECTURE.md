@@ -1,5 +1,19 @@
 # RoomSell architecture alignment audit
 
+## Six-area application implementation — current
+
+The existing modular monolith, 2D editor and scene v2 are preserved. No dependencies were added in this increment. The earlier audit and steps 1–4 checkpoint below remain historical evidence.
+
+Actual additions are project-private references (`room-reference-service.ts`); durable leased jobs (`jobs-service.ts`, `worker-service.ts`); strict catalogue/budget advice (`assistant-contract.ts`, `ai-provider.ts`, `design-assistant-service.ts`); checked reservations/orders (`order-service.ts`); and explicitly published offers plus separately owned consumer projects (`marketplace-service.ts`). These paths are under `apps/web/lib`. Migrations 011–016 define their database authority and RLS.
+
+AI workers use the same `projectEditor`/`EditorService` preview path as a human. They never accept scenes. Prices, stock, permissions, scene versions and locks are independently checked. Recommendations are estimates; an issued quotation remains the authoritative immutable commercial document.
+
+Consumer designs use scene v2 with `organisationId: consumer:<auth-user-id>` and a separate owned persistence adapter. Retailer `organisationId` is still mandatory and unchanged. Both renderers and the existing editor operate on this same scene. Consumer 3D currently uses measured proxies. Only selected published product images have a public delivery route; private catalogue and room-reference buckets stay private. A consented enquiry copies only the selected retailer's objects into a new retailer project.
+
+Operational implementation includes database health checks, authenticated cron execution, safe hosted cookie/origin configuration, a Vercel deployment configuration and verified local database-plus-asset backup/restore scripts. Vercel/Supabase projects, live OpenAI, SMTP delivery, hosted monitoring and hosted restoration have not been provisioned or verified. The target remains managed hosting; see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+Boreal Living is an explicitly fictional, local-only fixture with generated photographs and isolated accounts. Its simulated feed reconciles fulfilled quantities. Real snapshot-only connectors cannot fulfil externally managed stock until an upstream order acknowledgement adapter exists; migration 015 fails closed. No external POS order, payment, shipment, billing or notification is implied.
+
 ## Approved implementation update — 14 October 2026
 
 The user approved implementation after the audit. The existing 2D editor, canonical schema v2 and one Next.js application remain in place. The historical audit against `660d52f887eb396506e76401145ee99e0a93de8d` is preserved below; statements in that snapshot describe the baseline, not the new implementation. Full combined build/database/browser gates are pending at the time of this update; current verification belongs in `VALIDATION.md`.

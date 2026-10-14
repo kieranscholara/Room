@@ -247,6 +247,7 @@ function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boo
 }
 
 interface EditorProps {
+  personal?: boolean;
   projectId?: string;
   endpoint?: string;
   title?: string;
@@ -254,6 +255,7 @@ interface EditorProps {
   readOnly?: boolean;
 }
 export function Editor({
+  personal = false,
   projectId,
   endpoint = projectId ? `/api/projects/${encodeURIComponent(projectId)}/scene` : '/api/scene',
   title,
@@ -318,7 +320,13 @@ export function Editor({
         <div className="workspace-name">
           Room studio <ChevronRight size={14} /> {projectId ? 'Project design' : 'Bedroom study'}
         </div>
-        <span className="demo-pill">{projectId ? 'Organisation workspace' : 'Local development demo'}</span>
+        <span className="demo-pill">
+          {personal
+            ? 'Private personal design'
+            : projectId
+              ? 'Organisation workspace'
+              : 'Local development demo'}
+        </span>
         <div className="avatar" title={projectId ? 'Project workspace' : 'Local demo workspace'}>
           RS
         </div>
@@ -471,7 +479,13 @@ export function Editor({
                 {error && <Button onClick={() => void load()}>Retry</Button>}
               </div>
             ) : view === '3d' ? (
-              <RoomViewer3D projectId={projectId} comparing={comparing} onUnavailable={() => setView('2d')} />
+              <RoomViewer3D
+                sceneEndpoint={endpoint}
+                productsEndpoint={personal ? `/api/consumer/projects/${projectId}/products` : undefined}
+                projectId={projectId}
+                comparing={comparing}
+                onUnavailable={() => setView('2d')}
+              />
             ) : (
               <FloorPlan comparing={comparing} readOnly={readOnly} />
             )}

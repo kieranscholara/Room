@@ -1,3 +1,15 @@
+# Six-area platform review — 14 October 2026
+
+Manual source/SQL/behaviour review covered the new actor/tenant boundaries, private images, provider transport, immutable commercial records, job leases and consumer/publication permissions. No editor/scene-engine rewrite and no dependency additions were required. The final gates are in VALIDATION.md.
+
+Corrections during review: buyer-only customer order visibility/management; aggregate stock checks on fulfilment and consumer additions; publication-policy currency matching; provider redirect rejection and bounded permanent/transient failures; fresh catalogue/price/stock/version/actor rechecks after AI work; bounded job results; durable result recovery after reload; local fixture exclusion from deployment tracing; runtime test gates; stable isolated browser fixture encryption; and explicit snapshot-only external fulfilment denial until upstream acknowledgement exists.
+
+The local restore drill uses a newly created database and private bucket; its cleanup only drops a database after successful owned creation. Fictional seed repair verifies registered synthetic identities and preserves user edits. Source review confirmed generated credentials, keys, stock state and backups remain ignored/restricted.
+
+Remaining rollout work is concrete: create managed projects, supply secrets securely, configure SMTP/alerts/backups, run live synthetic OpenAI and retailer feed tests, implement a chosen provider's outbound order acknowledgement, and verify hosted restore/tenant denial before a public pilot. No production readiness or remote CI result is claimed.
+
+---
+
 # First three milestones: implementation review
 
 This records implementation boundaries and reviewed issues. It is a development self-review with separate agent review and automated tests, not an independent production-security audit. Actual check results belong in [VALIDATION.md](VALIDATION.md).

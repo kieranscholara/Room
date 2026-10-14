@@ -23,7 +23,12 @@
     "format:check": "prettier --check .",
     "setup:local": "node scripts/local-stack.mjs",
     "db:migrate": "node scripts/migrate.mjs",
-    "test:integration": "node scripts/test-integration.mjs"
+    "test:integration": "node scripts/test-integration.mjs",
+    "seed:test-customer": "node scripts/seed-test-customer.mjs",
+    "worker": "node scripts/worker.mjs --watch",
+    "worker:once": "node scripts/worker.mjs",
+    "backup:local": "node scripts/backup-local.mjs",
+    "restore:check": "node scripts/restore-check.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

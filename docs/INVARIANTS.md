@@ -1,5 +1,16 @@
 # Architecture invariants
 
+## Additional enforced platform invariants
+
+- Private room photographs are visual references, never confirmed measurements. Access requires the current project grant. OpenAI receives at most two references only after explicit selection.
+- AI returns bounded intent, never a replacement scene, lock edit, SKU invention or price. Current catalogue identities, exact commercial totals, stock, scene version and actor permission are rechecked. A worker can save a preview; only ordinary explicit acceptance commits it.
+- Job completion requires the current unexpired lease and current permission. Keys cannot identify a different payload. Retries are bounded to three; results are bounded to 64 KiB. Jobs never log provider bodies or keys.
+- Reservations and order transitions serialize under the retailer lock. Aggregate unexpired/confirmed holds reduce available stock. Orders preserve issued quotation snapshots; only staff fulfil, once. Another customer cannot view or manage the buyer's order. Snapshot-only real stock providers cannot safely acknowledge fulfilment and are blocked.
+- A consumer owns their separate scene/history/previews. Retailer membership grants no access to that private design. New furniture must match a current explicitly published variant; backend admission repeats on acceptance.
+- Publication is an administrator's explicit decision, including exact selected image IDs. Unpublishing revokes the public API/image route immediately. Private catalogue RLS is never weakened.
+- A retailer enquiry requires owner consent and a current design version. Only that retailer's selected objects, measured room and the account contact are copied. Other retailer products, photographs and the original private design are not shared.
+- Test shortcuts and simulated stock require both the explicit test flag and verified local Supabase. Generated account credentials/worker tokens live only in ignored mode-0600 files. Production output tracing excludes local fixture/credential directories.
+
 ## Approved implementation update — 14 October 2026
 
 Baseline obligations are preserved below. The following source-backed rules have now been implemented; full combined verification remains pending.

@@ -9,7 +9,7 @@ export async function serverClient() {
   const config = supabaseConfig();
   const cookieStore = await cookies();
   const requestHeaders = await headers();
-  const secure = requestHeaders.get('x-forwarded-proto') === 'https';
+  const secure = !config.local || requestHeaders.get('x-forwarded-proto') === 'https';
   return createServerClient(config.url, config.anonKey, {
     cookies: {
       getAll: () => cookieStore.getAll(),

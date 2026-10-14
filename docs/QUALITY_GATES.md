@@ -1,5 +1,15 @@
 # Architecture quality gates
 
+## Added platform gates
+
+Unit checks reject invented/duplicate AI variants, quantity/stock and tax/fee budget violations, exact lock changes, malformed/oversized provider responses, unsafe redirects and permanent-versus-retryable failures. Editor tests reject worker previews from another scene, tenant, endpoint, version or pending edit.
+
+Real database tests check private reference metadata/bytes, staged path forgery, job deduplication/concurrent claims/stale leases/bounded retry/revocation, direct write denial, reservation races and expiry, buyer ownership, immutable prices, aggregate fulfilment stock, snapshot-only provider guards, publication consent/revisions, owner-only personal scenes, new SKU admission and consented retailer enquiries.
+
+Production browser tests exercise the fictional retailer/customer order path, photograph upload, durable assistance after reload, exact locked objects, stock reconciliation after fulfilment, owned consumer 2D/3D and reload, enquiry consent, tenant/consumer denial and immediate image revocation. Browser fixtures use `.local/e2e-fixtures`, separate from the interactive test company.
+
+CI retains frozen install, audit, local migration, lint, formatting, types, unit/database/build/browser checks. Add a scheduled backup/restore drill and hosted health/queue-age/failed-job alerts in the deployment operator's platform. Hosted email and live provider smoke tests require secure staging credentials and must not expose private data in artifacts.
+
 These gates distinguish tests present now from requirements for future capabilities. Current executed evidence is in [CURRENT_STATE.md](CURRENT_STATE.md); the previous full build/browser baseline remains in [VALIDATION.md](VALIDATION.md). The initial audit changed documentation only. After approval, the implementation added characterisation/security/renderer/commercial tests without weakening existing assertions. Final results are in VALIDATION.md.
 
 | Failure prevented                      | Existing coverage                                                                                                                              | Required addition before the relevant change                                                                                                                                                                                                                  |

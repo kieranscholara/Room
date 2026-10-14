@@ -1,5 +1,17 @@
 # Module ownership and dependency boundaries
 
+## New concrete capability owners
+
+| Files (under `apps/web` unless stated)                                                  | Responsibility                                                                                         | Authority boundary                                                                                    |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `lib/assistant-contract.ts`, `ai-provider.ts`, `design-assistant-service.ts`            | Bounded AI intentions, provider transport, catalogue/budget checking and checked preview orchestration | Cannot invent metadata, unlock or accept a scene.                                                     |
+| `lib/jobs-service.ts`, `worker-service.ts`, `scripts/worker.mjs` at root                | Tenant-scoped queue, leases, retries, permission checks, storage cleanup, expiry and execution         | Internal worker route requires a server secret; database lease is mandatory.                          |
+| `lib/room-reference-service.ts`                                                         | Private project photographs and lifecycle                                                              | Reuses full image validation; current project access governs bytes.                                   |
+| `lib/order-service.ts`, migrations 012/014/015                                          | Snapshot orders and serialized stock reservations/transitions                                          | SQL owns stock arithmetic and order permission; no payment or upstream acknowledgement is invented.   |
+| `lib/marketplace-service.ts`, consumer and marketplace routes                           | Explicit public DTO, publication, separately owned consumer persistence and consented enquiry          | Existing tenant catalogue policies remain private.                                                    |
+| `lib/local-testing.ts`, root `scripts/seed-test-customer.mjs`, `fixtures/boreal-living` | Explicit fictional local customer, generated images and stock simulator                                | Fail closed outside verified local mode; never seed arbitrary existing tenants.                       |
+| Root backup/restore scripts, `vercel.json`, `lib/public-origin.ts`, health route        | Repeatable operations and managed hosting preparation                                                  | Local restore targets a new temporary database/bucket; hosted rollout requires separate verification. |
+
 ## Approved implementation ownership — 14 October 2026
 
 The existing application/modules are retained. The historical baseline below records the overlaps found before approval. Their current ownership is now:
