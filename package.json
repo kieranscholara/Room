@@ -28,7 +28,8 @@
     "worker": "node scripts/worker.mjs --watch",
     "worker:once": "node scripts/worker.mjs",
     "backup:local": "node scripts/backup-local.mjs",
-    "restore:check": "node scripts/restore-check.mjs"
+    "restore:check": "node scripts/restore-check.mjs",
+    "try:customer": "node scripts/try-customer.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

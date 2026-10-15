@@ -19,7 +19,17 @@ In restricted cloud workspaces, `npm ci --cache /workspace/.npm-cache` directs n
 
 ## Test with a fictional customer
 
-After starting the app, run `npm run seed:test-customer` and `npm run worker` in another terminal. Open `/testing` to enter the isolated Boreal Living manager, customer or consumer account. Generated images and inventory are explicitly fictional. See [the customer walkthrough](docs/TEST_CUSTOMER.md). OpenAI and public managed hosting require secure credentials/projects; [deployment instructions](docs/DEPLOYMENT.md) describe the prepared Vercel/Supabase setup.
+For a fictional customer trial entirely through Docker, use Docker Desktop 4.34+ with Linux containers and **Settings → Resources → Network → Enable host networking** turned on (Linux Docker Engine already supports host networking). In the repository folder run:
+
+```sh
+docker compose up --build
+```
+
+Wait for **READY**, then open `/testing` in the local application on port 3000. Click **Enter as retailer** or **Enter as customer**. No signup, password entry, email verification, Vercel account or hosted Supabase key is required. Node/npm are included in the image. The first build/service downloads may take several minutes; later launches reuse them.
+
+The local-only launcher uses your Docker engine socket to start the official Supabase services. It retains fictional accounts, stock, scenes and the connector encryption key in Docker volumes. Keep this setup local; it is not a hosted deployment configuration. See [the Docker walkthrough](docs/DOCKER_TRIAL.md).
+
+If you prefer Node.js 24 on your computer with Docker only for Supabase, `npm run try:customer` is also available. Generated images and inventory are explicitly fictional. The labelled local AI adapter needs no API key and is not OpenAI; live OpenAI is optional. See [the customer walkthrough](docs/TEST_CUSTOMER.md).
 
 ## Use the application
 

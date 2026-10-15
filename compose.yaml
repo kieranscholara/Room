@@ -1,0 +1,22 @@
+name: roomsell-trial
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.trial
+      network: host
+    init: true
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - trial-state:/workspace/Room/.local
+    environment:
+      ROOMSELL_LOCAL_SUPABASE: '1'
+      ROOMSELL_ENABLE_DEMO: '1'
+      ROOMSELL_ENABLE_TEST_CUSTOMER: '1'
+    env_file:
+      - path: .env.trial
+        required: false
+    stop_grace_period: 30s
+volumes:
+  trial-state:

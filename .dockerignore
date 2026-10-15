@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/.next
+**/.local
+**/.env*
+!**/.env.example
+**/*.tsbuildinfo
+test-results
+playwright-report
+.npm-cache
+.cache
+.agents
+.codex

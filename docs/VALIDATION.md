@@ -1,3 +1,13 @@
+# Account-free Docker trial — 15 October 2026
+
+Added `Dockerfile.trial`, `compose.yaml` and the one-command `scripts/try-customer.mjs` launcher. No new application dependencies or editor/geometry changes. The build context excludes local credentials, runtime data, environment files, Git metadata and dependencies. Optional live OpenAI credentials are supplied at runtime through ignored `.env.trial`.
+
+Verified a fresh frozen dependency install in the Node 24 image, official local Supabase reuse and non-destructive migration, first fictional seed, simulated inventory synchronization, all three shortcut personas and a completed background test-assistance job with the accepted scene unchanged. Recreating the app container retained the same registered fictional accounts/projects and connector encryption key; inventory synchronization and assistance passed again afterward. The application container reports healthy. A real Chromium browser verified one-click retailer and customer entry, the measured consultation and ready 3D viewer without signup/email verification or browser errors. Docker Desktop host networking is required on supported Windows/macOS installations; Linux host networking was exercised here.
+
+Lint, strict types, formatting and **235 unit tests** passed. The normal unit run deliberately skipped the 54 separately gated database tests. Existing platform acceptance coverage is recorded below; no claim is made that the full database/30-browser production suite was rerun for this launcher-only change. See [DOCKER_TRIAL.md](DOCKER_TRIAL.md) for the local Docker instructions and stop/data-retention behaviour. No Vercel, hosted Supabase keys, signup or email verification is needed for this trial. The local AI adapter is labelled and does not call OpenAI.
+
+---
+
 # Six-area platform validation — 14 October 2026
 
 Executed in the same local cloud checkout with Node 24.19/npm 11.9, Next 16.4, PostgreSQL 17.11, Supabase CLI 2.120 and system Chromium. The earlier checkpoints below are historical; current results supersede their missing-feature statements.

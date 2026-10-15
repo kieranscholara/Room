@@ -4,12 +4,17 @@ Boreal Living is an authorised synthetic retailer, not a real company. Its catal
 
 ## Start the scenario
 
-From the repository root, run the normal local setup/migrations and start the app, then in a second terminal:
+For Docker-only startup, follow [DOCKER_TRIAL.md](DOCKER_TRIAL.md): `docker compose up --build`. No Node installation or hosted accounts are needed.
+
+For the alternative host-Node workflow, install Node.js 24 and start Docker Desktop/Engine. From the repository root run:
 
 ```sh
-npm run seed:test-customer
-npm run worker
+npm run try:customer
 ```
+
+This handles missing npm dependencies, verified local services, migrations, local test flags, a stable connector key, app startup, idempotent fixture preparation and a worker. No Vercel account, hosted Supabase keys, signup or email confirmation is needed. The first run may take several minutes to download service images. Keep the terminal open when the command starts processes; Ctrl+C stops its own app/worker, with saved data retained. A second run reuses a matching healthy app and verified worker.
+
+If you already run the app manually, the separate commands remain `npm run seed:test-customer` and `npm run worker`.
 
 Open `/testing` in the running application. Choose Showroom manager (Alex), Shared project customer (Maya) or Marketplace consumer (Leo). No passwords need to be copied. The shortcut exists only with `ROOMSELL_ENABLE_TEST_CUSTOMER=1`, `ROOMSELL_LOCAL_SUPABASE=1` and a verified local target. It rechecks the registered synthetic account IDs and does not impersonate ordinary users.
 
