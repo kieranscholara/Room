@@ -121,7 +121,11 @@ export async function resolveInventoryEndpoint(
 }
 
 export type InventoryTransport = (endpoint: string, token: string) => Promise<Uint8Array>;
-export const secureInventoryTransport: InventoryTransport = async (endpoint, token) => {
+export async function secureProviderRequest(
+  endpoint: string,
+  token: string,
+  body?: Uint8Array,
+): Promise<Uint8Array> {
   const startedAt = Date.now();
   const { url, address } = await resolveInventoryEndpoint(endpoint);
   return new Promise<Uint8Array>((resolve, reject) => {
@@ -131,8 +135,12 @@ export const secureInventoryTransport: InventoryTransport = async (endpoint, tok
     const request = httpsRequest(
       url,
       {
-        method: 'GET',
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+        method: body ? 'POST' : 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+          ...(body ? { 'Content-Type': 'application/json', 'Content-Length': body.byteLength } : {}),
+        },
         // The TCP connection uses the already-checked address. TLS still verifies
         // the endpoint hostname, closing the validation-to-connect DNS race.
         lookup: (_hostname, options, callback) => {
@@ -179,9 +187,11 @@ export const secureInventoryTransport: InventoryTransport = async (endpoint, tok
     );
     request.on('close', () => clearTimeout(timer));
     request.on('error', () => fail(new InventoryError('provider_unavailable')));
-    request.end();
+    request.end(body);
   });
-};
+}
+export const secureInventoryTransport: InventoryTransport = (endpoint, token) =>
+  secureProviderRequest(endpoint, token);
 export async function fetchInventorySnapshot(
   endpoint: string,
   token: string,

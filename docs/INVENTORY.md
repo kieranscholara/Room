@@ -1,6 +1,6 @@
 # Inventory connector contract
 
-Implemented provider: `custom_rest`, manual full-snapshot GET with a Bearer token over public HTTPS. Shopify/WooCommerce-native adapters, webhooks, schedules, product creation and stock reservation are future work. A live retailer system and its credentials must be configured; source code contains no live endpoint or fabricated retailer inventory.
+Implemented provider: `custom_rest`, full-snapshot GET and an optional idempotent supplier fulfilment POST with a Bearer token over public HTTPS. Synchronization can run manually or through the durable queue. Local order reservations are implemented. Shopify/WooCommerce-native adapters, provider reservation APIs, webhooks, automatic schedules and product creation remain outside this contract. Boreal Living is explicitly fictional; no live supplier is configured.
 
 The endpoint returns `application/json` with the strict contract:
 
@@ -41,3 +41,31 @@ The authenticated owner/admin APIs are:
 - `POST /api/organisations/{orgId}/inventory/{connectionId}/sync`: manually fetch and apply `{expectedRevision}`.
 
 Configuration conflicts return HTTP 409. Provider or catalogue snapshot failures return sanitized errors with a failed audit run and no catalogue data changes. There is no configured live provider after installation; retailers must supply their actual endpoint, token and mappings.
+
+## Optional supplier acknowledgement
+
+Owners/admins can set `orderEndpoint` when creating/editing a connection. It must share the snapshot endpoint's HTTPS origin and uses the same encrypted credential. Blank means snapshot-only: externally mapped stock cannot be fulfilled. Migrating does not opt existing real connections into outbound writes.
+
+POST JSON contract (integer quantities; no customer identity or photograph is transmitted):
+
+```json
+{
+  "schemaVersion": 1,
+  "orderId": "00000000-0000-4000-8000-000000000001",
+  "requestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "currency": "EUR",
+  "items": [
+    { "externalProductId": "BL-ASTER", "externalVariantId": "BL-ASTER", "sku": "BL-ASTER", "quantity": 1 }
+  ]
+}
+```
+
+These are illustrative identifiers. The actual payload is frozen from checked database order items and explicit mappings before any request. The hash is SHA-256 of the database's canonical JSONB request without `requestHash`; providers treat it as an opaque payload identity. Validate schema/items independently rather than recomputing with a different JSON serializer.
+
+The supplier must return HTTP 200 JSON, bounded to 16 KiB, with exactly `schemaVersion: 1`, the same `orderId` and `requestHash`, `status: "accepted" | "rejected"`, and a non-empty `supplierReference` of at most 200 characters. It must durably deduplicate by `orderId`, reject changed payloads for that ID, and return the same terminal receipt on every retry. **Accepted** means the mapped quantities were applied to upstream stock once and subsequent snapshots reflect that change. **Rejected** guarantees no upstream stock/order mutation. An HTTP error, invalid receipt or timeout is an unknown outcome, not a rejection.
+
+The database serializes admission, verifies retailer permission and aggregate stock, and persists the request before sending. While its outcome is unknown, cancellation and conflicting stock/mapping/credential/configuration changes are fenced. A second order sharing the supplier or affected stock waits. Retrying uses the same frozen request. Acceptance receipt, local stock decrement, order status and audit event commit atomically; duplicate completion returns the original result. Rejection preserves local stock and allows cancellation; fulfilment cannot bypass a rejected or missing receipt. Current staff permission is rechecked at completion. Receipt/request rows are read-only through project access; ordinary users and the service client cannot write them directly.
+
+An order can contain manual stock plus at most one supplier connection. Multiple supplier connections fail before any external request and require separate projects/quotations. Arbitrary HTTP status/body formats require a provider-specific adapter. The local Boreal simulator implements this contract in retained private state and reconciles sold stock. It is not evidence that a real vendor honors idempotency or stock semantics.
+
+Operational monitoring flags acknowledgements pending over five minutes. Recover them by retrying the original order; do not delete the request, clear its fence or create a new upstream key to work around a timeout. A supplier that stays unavailable requires operator reconciliation against its durable order reference.

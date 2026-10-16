@@ -25,6 +25,8 @@ For a fictional customer trial entirely through Docker, use Docker Desktop 4.34+
 docker compose up --build
 ```
 
+On Windows you can also double-click `Start-RoomSell.cmd`. Builds use ordinary networking; host networking is needed only by the running local app.
+
 Wait for **READY**, then open `/testing` in the local application on port 3000. Click **Enter as retailer** or **Enter as customer**. No signup, password entry, email verification, Vercel account or hosted Supabase key is required. Node/npm are included in the image. The first build/service downloads may take several minutes; later launches reuse them.
 
 The local-only launcher uses your Docker engine socket to start the official Supabase services. It retains fictional accounts, stock, scenes and the connector encryption key in Docker volumes. Keep this setup local; it is not a hosted deployment configuration. See [the Docker walkthrough](docs/DOCKER_TRIAL.md).
@@ -79,4 +81,4 @@ The [validation record](docs/VALIDATION.md) records actual results. The [test pl
 
 Real project scenes, versions, proposals and catalogues persist in PostgreSQL; assets use a private Storage bucket. The unauthenticated synthetic demo keeps its separate atomic local file adapter. That adapter supports one server process and must contain synthetic data only.
 
-The first three development milestones cover editor rules, accounts/tenant persistence, and catalogue/customer/project workflows. Private references, AI previews, reservations/orders, durable jobs and owned consumer designs are implemented in the bounded local workflow. Live provider acceptance, public hosting/email/monitoring/restore, billing and upstream order acknowledgement remain on the [roadmap](docs/ROADMAP.md). See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md), [limitations](docs/KNOWN_LIMITATIONS.md), and the repository's [engineering rules](AGENTS.md).
+The first three development milestones cover editor rules, accounts/tenant persistence, and catalogue/customer/project workflows. Private references, AI previews, reservations/orders, durable jobs and owned consumer designs are implemented in the bounded local workflow. Password recovery, optional idempotent supplier acknowledgement and operational checks are also implemented. Live provider acceptance, public hosting/SMTP/alerts/restore and billing remain on the [roadmap](docs/ROADMAP.md). See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md), [limitations](docs/KNOWN_LIMITATIONS.md), and the repository's [engineering rules](AGENTS.md).

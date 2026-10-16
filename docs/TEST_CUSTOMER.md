@@ -28,6 +28,12 @@ The seed is repeatable: it repairs missing supplied images, reference and initia
 4. Review and issue the configured quotation. Switch to Maya and reserve the quotation for 15 minutes, then confirm or cancel. Return as Alex to record fulfilment. No payment or email is sent. The fictional upstream reconciles fulfilled quantities so later sync cannot restore sold stock.
 5. For independent scenarios, create a fresh project rather than deleting or resetting the supplied consultation. Sharing grants view/edit/order separately; contacts alone provide no access.
 
+The fictional supplier now implements the optional custom REST fulfilment contract: exact mapped external IDs, quantities, order UUID and a frozen request hash; an immutable `BOREAL-…` acknowledgement; idempotent retries; explicit rejection if upstream test stock is unavailable. Its order ledger is retained privately alongside fixture state. It is an in-process simulator, not a real external supplier. Ordinary connections keep DNS-pinned public HTTPS transport and need a compatible supplier endpoint.
+
+To test a supplier decline, confirm an order, reduce an involved SKU's simulated upstream stock to zero **without synchronizing first**, then record fulfilment. The supplier declines, local stock is not decremented, and cancellation remains available. Cancel, synchronize and issue a new quotation after reviewing stock. A network timeout instead leaves the order pending: retry fulfilment rather than creating another supplier order.
+
+The sign-in page also offers password recovery. Local test mail is captured on port 54324 and does not leave the machine. Open the recovery email in the browser that requested it. One-click fictional personas do not require this flow.
+
 ## Consumer journey
 
 As Leo, open `/marketplace`, inspect explicitly published fictional offers and open/create a private measured personal room. Preview and accept a published product, set locks and compare 2D/3D. Personal rooms use exact measured 3D proxies. Reload to verify persistence.

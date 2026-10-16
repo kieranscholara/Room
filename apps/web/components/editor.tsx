@@ -40,14 +40,20 @@ const RoomViewer3D = dynamic(() => import('./room-viewer-3d'), {
 });
 function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boolean; readOnly: boolean }) {
   const { scene, proposal, busy, mode, preview } = useEditor();
-  const [x, setX] = useState(String(object.transform.x));
-  const [z, setZ] = useState(String(object.transform.z));
-  const [angle, setAngle] = useState(String(Math.round((object.transform.rotation * 180) / Math.PI)));
-  useEffect(() => {
-    setX(String(object.transform.x));
-    setZ(String(object.transform.z));
-    setAngle(String(Math.round((object.transform.rotation * 180) / Math.PI)));
-  }, [object, scene?.version]);
+  // Reset immediately when the displayed source changes. An effect can run after
+  // the next input event and overwrite coordinates typed just after Discard.
+  const initial = {
+    source: object,
+    version: scene?.version,
+    x: String(object.transform.x),
+    z: String(object.transform.z),
+    angle: String(Math.round((object.transform.rotation * 180) / Math.PI)),
+  };
+  const [draft, setDraft] = useState(initial);
+  const changed = draft.source !== object || draft.version !== scene?.version;
+  if (changed) setDraft(initial);
+  const fields = changed ? initial : draft;
+  const { x, z, angle } = fields;
   const disabled = readOnly || busy || Boolean(proposal);
   const group = scene?.groups.find((candidate) => candidate.objectIds.includes(object.id));
   const members = scene?.objects.filter((candidate) => group?.objectIds.includes(candidate.id)) ?? [];
@@ -107,7 +113,7 @@ function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boo
               required
               value={x}
               disabled={disabled || positionLocked}
-              onChange={(e) => setX(e.target.value)}
+              onChange={(e) => setDraft({ ...fields, x: e.target.value })}
             />
           </Field>
           <Field label="Z position (m)">
@@ -120,7 +126,7 @@ function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boo
               required
               value={z}
               disabled={disabled || positionLocked}
-              onChange={(e) => setZ(e.target.value)}
+              onChange={(e) => setDraft({ ...fields, z: e.target.value })}
             />
           </Field>
         </div>
@@ -135,7 +141,7 @@ function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boo
               required
               value={angle}
               disabled={disabled || rotationLocked}
-              onChange={(e) => setAngle(e.target.value)}
+              onChange={(e) => setDraft({ ...fields, angle: e.target.value })}
             />
           </Field>
           <Button

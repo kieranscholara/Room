@@ -172,6 +172,15 @@ test('fictional retailer uploads a private room photo, reviews assistance and fu
   await page.goto(`/projects/${p.id}`);
   await page.getByRole('button', { name: 'Record fulfilment', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Project orders' })).toContainText('fulfilled');
+  await expect(page.getByRole('region', { name: 'Project orders' })).toContainText(
+    'Supplier accepted: BOREAL-',
+  );
+  const fulfilled = await get(page.request, `/api/projects/${p.id}/orders`);
+  const retry = await page.request.post(`/api/projects/${p.id}/orders/${fulfilled.orders[0].id}`, {
+    data: { action: 'fulfil', expectedStatus: 'confirmed' },
+  });
+  expect(retry.status()).toBe(200);
+  expect((await retry.json()).status).toBe('fulfilled');
   const selectedBefore = await get(page.request, `/api/projects/${p.id}/products`);
   const overview = await get(page.request, `/api/organisations/${f.organisationId}/inventory`),
     connection = overview.connections.find((c: { id: string }) => c.id === f.connectionId);
@@ -196,6 +205,77 @@ test('fictional retailer uploads a private room photo, reviews assistance and fu
   expect(orders.orders[0].status).toBe('fulfilled');
   await page.screenshot({ path: 'test-results/boreal-retailer.png', fullPage: true });
   expect(errors).toEqual([]);
+});
+
+test('a fictional supplier decline keeps stock intact and allows the retailer to cancel', async ({
+  page,
+}) => {
+  await enter(page, 'retailer');
+  const { p } = await createProject(page);
+  await page.goto(`/projects/${p.id}`);
+  await page.getByRole('button', { name: 'Review quotation', exact: true }).click();
+  await page.getByRole('button', { name: 'Issue reviewed quotation', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Issued quotation details' })).toBeVisible();
+  const quotes = await get(page.request, `/api/projects/${p.id}/quotations`);
+  const reserved = await page.request.post(`/api/projects/${p.id}/orders`, {
+    data: { quotationId: quotes[0].id, idempotencyKey: randomUUID() },
+  });
+  expect(reserved.status()).toBe(201);
+  const order = await reserved.json();
+  expect(
+    (
+      await page.request.post(`/api/projects/${p.id}/orders/${order.id}`, {
+        data: { action: 'confirm', expectedStatus: 'reserved' },
+      })
+    ).status(),
+  ).toBe(200);
+  const stockBefore = await get(page.request, `/api/projects/${p.id}/products`);
+  const upstream = (await get(page.request, '/api/testing/inventory')).items.find(
+    (item: { sku: string }) => item.sku === 'BL-ASTER',
+  );
+  try {
+    expect(
+      (
+        await page.request.post('/api/testing/inventory', {
+          data: {
+            externalVariantId: upstream.externalVariantId,
+            stockQuantity: 0,
+            availability: 'out_of_stock',
+          },
+        })
+      ).status(),
+    ).toBe(200);
+    await page.reload();
+    await page.getByRole('button', { name: 'Record fulfilment', exact: true }).click();
+    const panel = page.getByRole('region', { name: 'Project orders' });
+    await expect(panel).toContainText('Supplier rejected: BOREAL-');
+    await expect(panel.getByRole('alert')).toContainText('supplier declined');
+    await expect(page.getByRole('button', { name: 'Record fulfilment', exact: true })).toHaveCount(0);
+    expect(
+      (await get(page.request, `/api/projects/${p.id}/products`)).items.map(
+        (item: { stockQuantity: number }) => item.stockQuantity,
+      ),
+    ).toEqual(stockBefore.items.map((item: { stockQuantity: number }) => item.stockQuantity));
+    const declined = (await get(page.request, `/api/projects/${p.id}/orders`)).orders[0];
+    expect(declined.supplierAcknowledgement.status).toBe('rejected');
+    expect(
+      (
+        await page.request.post(`/api/projects/${p.id}/orders/${order.id}`, {
+          data: { action: 'fulfil', expectedStatus: 'confirmed' },
+        })
+      ).status(),
+    ).toBe(422);
+    await page.getByRole('button', { name: 'Cancel order', exact: true }).click();
+    await expect(panel).toContainText('cancelled');
+  } finally {
+    await page.request.post('/api/testing/inventory', {
+      data: {
+        externalVariantId: upstream.externalVariantId,
+        stockQuantity: upstream.stockQuantity,
+        availability: upstream.availability,
+      },
+    });
+  }
 });
 
 test('consumer owns a private 2D and 3D design and explicitly shares a retailer enquiry', async ({

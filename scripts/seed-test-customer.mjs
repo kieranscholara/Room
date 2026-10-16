@@ -77,6 +77,26 @@ async function repairFixture(profile) {
       .select('id')
       .single(),
   );
+  const connection = data(
+    await admin
+      .from('inventory_connections')
+      .select('id,endpoint,order_endpoint,revision')
+      .eq('id', profile.connectionId)
+      .eq('organisation_id', profile.organisationId)
+      .single(),
+  );
+  if (connection.endpoint === 'https://inventory.boreal-living.test/snapshot' && !connection.order_endpoint)
+    data(
+      await admin
+        .from('inventory_connections')
+        .update({
+          order_endpoint: 'https://inventory.boreal-living.test/fulfilments',
+          revision: connection.revision + 1,
+        })
+        .eq('id', connection.id)
+        .select('id')
+        .single(),
+    );
   const cookies = new Map();
   async function request(route, options = {}) {
     const response = await fetch(new URL(route, base), {
@@ -435,6 +455,7 @@ try {
       p_config: {
         name: 'Boreal Living — SIMULATED inventory',
         endpoint: 'https://inventory.boreal-living.test/snapshot',
+        orderEndpoint: 'https://inventory.boreal-living.test/fulfilments',
         enabled: true,
       },
       p_token_envelope: envelope,

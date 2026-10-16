@@ -12,6 +12,8 @@ interface Order {
   expiresAt: string;
   snapshot: QuotationSnapshot;
   createdAt: string;
+  supplierPending: boolean;
+  supplierAcknowledgement: { supplierReference: string; status: 'accepted' | 'rejected' } | null;
 }
 interface Orders {
   canOrder: boolean;
@@ -49,6 +51,7 @@ export function ProjectOrders({ projectId }: { projectId: string }) {
       });
       await load();
     } catch (reason) {
+      await load();
       setError(reason instanceof Error ? reason.message : 'Order update failed.');
     } finally {
       setBusy(false);
@@ -133,22 +136,37 @@ export function ProjectOrders({ projectId }: { projectId: string }) {
               {order.status === 'reserved' && (
                 <p>Reservation expires {new Date(order.expiresAt).toLocaleString()}</p>
               )}
+              {order.supplierPending && (
+                <p role="status">
+                  Supplier acknowledgement pending. Retry fulfilment to recover the same supplier order.
+                </p>
+              )}
+              {order.supplierAcknowledgement && (
+                <p>
+                  Supplier {order.supplierAcknowledgement.status}:{' '}
+                  {order.supplierAcknowledgement.supplierReference}
+                </p>
+              )}
             </div>
             {order.canManage && order.status === 'reserved' && (
               <Button disabled={busy} onClick={() => void transition(order, 'confirm')}>
                 Confirm order
               </Button>
             )}
-            {order.canManage && ['reserved', 'confirmed'].includes(order.status) && (
-              <Button disabled={busy} onClick={() => void transition(order, 'cancel')}>
-                Cancel order
-              </Button>
-            )}
-            {state.canFulfil && order.status === 'confirmed' && (
-              <Button disabled={busy} onClick={() => void transition(order, 'fulfil')}>
-                Record fulfilment
-              </Button>
-            )}
+            {order.canManage &&
+              !order.supplierPending &&
+              ['reserved', 'confirmed'].includes(order.status) && (
+                <Button disabled={busy} onClick={() => void transition(order, 'cancel')}>
+                  Cancel order
+                </Button>
+              )}
+            {state.canFulfil &&
+              order.status === 'confirmed' &&
+              order.supplierAcknowledgement?.status !== 'rejected' && (
+                <Button disabled={busy} onClick={() => void transition(order, 'fulfil')}>
+                  Record fulfilment
+                </Button>
+              )}
           </article>
         ))}
       </div>

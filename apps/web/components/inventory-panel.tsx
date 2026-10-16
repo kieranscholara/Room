@@ -11,6 +11,7 @@ interface InventoryConnection {
   name: string;
   provider: 'custom_rest';
   endpoint: string;
+  orderEndpoint: string | null;
   enabled: boolean;
   revision: number;
   credentialConfigured: boolean;
@@ -43,6 +44,7 @@ interface ConnectionForm {
   expectedRevision: number | null;
   name: string;
   endpoint: string;
+  orderEndpoint: string;
   token: string;
   enabled: boolean;
 }
@@ -64,6 +66,7 @@ const emptyConnection = (): ConnectionForm => ({
   expectedRevision: null,
   name: '',
   endpoint: '',
+  orderEndpoint: '',
   token: '',
   enabled: true,
 });
@@ -220,6 +223,7 @@ export function InventoryPanel({ context }: { context: WorkspaceContext }) {
                     ...(submitted.id ? { expectedRevision: submitted.expectedRevision } : {}),
                     name: submitted.name,
                     endpoint: submitted.endpoint,
+                    orderEndpoint: submitted.orderEndpoint.trim() || null,
                     enabled: submitted.enabled,
                     ...(!submitted.id || submitted.token ? { token: submitted.token } : {}),
                   },
@@ -256,6 +260,17 @@ export function InventoryPanel({ context }: { context: WorkspaceContext }) {
                   disabled={unavailable}
                   value={form.endpoint}
                   onChange={(event) => setForm({ ...form, endpoint: event.target.value })}
+                />
+              </Field>
+              <Field label="Supplier acknowledgement endpoint (optional)">
+                <input
+                  aria-label="Supplier acknowledgement endpoint (optional)"
+                  type="url"
+                  pattern="https://.*"
+                  maxLength={2048}
+                  disabled={unavailable}
+                  value={form.orderEndpoint}
+                  onChange={(event) => setForm({ ...form, orderEndpoint: event.target.value })}
                 />
               </Field>
               <Field label={form.id ? 'Replacement access token (optional)' : 'Inventory access token'}>
@@ -339,6 +354,11 @@ export function InventoryPanel({ context }: { context: WorkspaceContext }) {
               <p className="account-muted" style={{ overflowWrap: 'anywhere' }}>
                 {connection.endpoint}
               </p>
+              <p className="account-muted">
+                {connection.orderEndpoint
+                  ? 'Supplier acknowledgement configured: ' + connection.orderEndpoint
+                  : 'Snapshot only: supplier fulfilment is disabled until an acknowledgement endpoint is configured.'}
+              </p>
               <p>Last completed synchronisation: {timestamp(connection.lastSyncedAt)}</p>
               <p className="account-muted">
                 Last source snapshot: {timestamp(connection.lastSourceGeneratedAt)}
@@ -352,6 +372,7 @@ export function InventoryPanel({ context }: { context: WorkspaceContext }) {
                       expectedRevision: connection.revision,
                       name: connection.name,
                       endpoint: connection.endpoint,
+                      orderEndpoint: connection.orderEndpoint ?? '',
                       enabled: connection.enabled,
                       token: '',
                     });

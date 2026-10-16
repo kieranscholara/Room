@@ -18,6 +18,7 @@ import {
 import { adminClient, databaseError, membership } from './supabase-server';
 import { ServiceError } from './editor-service';
 import { fixtureTransport } from './local-testing';
+import { validateOrderEndpoint } from '@roomsell/inventory/fulfilment';
 
 const managers = ['owner', 'admin'] as const;
 const tokenSchema = z
@@ -32,6 +33,7 @@ const configFields = {
   name: z.string().trim().min(1).max(100),
   endpoint: z.string().min(1).max(2048),
   enabled: z.boolean(),
+  orderEndpoint: z.string().min(1).max(2048).nullable().optional(),
 };
 const createSchema = z.object({ ...configFields, token: tokenSchema }).strict();
 const updateSchema = z
@@ -48,6 +50,7 @@ interface ConnectionRow {
   name: string;
   provider: 'custom_rest';
   endpoint: string;
+  order_endpoint: string | null;
   enabled: boolean;
   revision: number;
   last_synced_at: string | null;
@@ -67,6 +70,7 @@ function connectionDto(row: ConnectionRow, credentialConfigured: boolean): Inven
     name: row.name,
     provider: row.provider,
     endpoint: row.endpoint,
+    orderEndpoint: row.order_endpoint,
     enabled: row.enabled,
     revision: row.revision,
     credentialConfigured,
@@ -154,6 +158,9 @@ export async function writeInventoryConnection(orgId: string, connectionId: stri
   const config = connectionId ? updateSchema.parse(input) : createSchema.parse(input);
   try {
     const endpoint = inventoryEndpoint(config.endpoint).toString();
+    const orderEndpoint = config.orderEndpoint
+      ? validateOrderEndpoint(endpoint, config.orderEndpoint)
+      : config.orderEndpoint;
     if (!connectionId || !(await fixtureTransport(orgId, connectionId, endpoint)))
       await resolveInventoryEndpoint(endpoint);
     if (connectionId) {
@@ -166,7 +173,12 @@ export async function writeInventoryConnection(orgId: string, connectionId: stri
       p_actor_id: user.id,
       p_connection_id: connectionId,
       p_expected_revision: 'expectedRevision' in config ? config.expectedRevision : null,
-      p_config: { name: config.name, endpoint, enabled: config.enabled },
+      p_config: {
+        name: config.name,
+        endpoint,
+        enabled: config.enabled,
+        ...(orderEndpoint !== undefined ? { orderEndpoint } : {}),
+      },
       p_token_envelope: config.token ? encryptInventoryToken(config.token, key, orgId) : null,
     });
     databaseError(saved.error);

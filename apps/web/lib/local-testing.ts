@@ -7,6 +7,7 @@ import { supabaseConfig } from './supabase-config';
 import { adminClient } from './supabase-server';
 import { ServiceError } from './editor-service';
 import type { InventoryTransport } from '@roomsell/inventory/server';
+import { fulfilmentRequestSchema, type FulfilmentTransport } from '@roomsell/inventory/fulfilment';
 const persona = z.object({ id: z.uuid(), email: z.email(), password: z.string().min(12) }).strict();
 const fixtureSchema = z
   .object({
@@ -29,6 +30,7 @@ export const fixtureDirectory = () =>
       : '../../.local/fixtures',
   );
 export const FIXTURE_ENDPOINT = 'https://inventory.boreal-living.test/snapshot';
+export const FIXTURE_ORDER_ENDPOINT = 'https://inventory.boreal-living.test/fulfilments';
 export function testingEnabled() {
   return (
     process.env.ROOMSELL_ENABLE_TEST_CUSTOMER === '1' &&
@@ -80,6 +82,67 @@ export async function fixtureTransport(
   };
 }
 let stockLock: Promise<unknown> = Promise.resolve();
+export async function fixtureFulfilmentTransport(
+  orgId: string,
+  connectionId: string,
+  endpoint: string,
+): Promise<FulfilmentTransport | undefined> {
+  if (!testingEnabled()) return undefined;
+  const fixture = await testFixture();
+  if (
+    fixture.organisationId !== orgId ||
+    fixture.connectionId !== connectionId ||
+    endpoint !== FIXTURE_ORDER_ENDPOINT
+  )
+    return undefined;
+  return async (_endpoint, token, bytes) => {
+    const actual = Buffer.from(createHash('sha256').update(token).digest('hex'));
+    const expected = Buffer.from(fixture.providerTokenHash);
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
+      throw new Error('Fictional supplier credential mismatch.');
+    const request = fulfilmentRequestSchema.parse(JSON.parse(Buffer.from(bytes).toString('utf8')));
+    return withStockLock(async () => {
+      const path = resolve(fixtureDirectory(), 'boreal-supplier-orders.json');
+      let ledger: Record<string, { requestHash: string; receipt: unknown }> = {};
+      try {
+        const source = await readFile(path);
+        if (source.length > 8 * 1024 * 1024) throw new Error('Fictional supplier ledger is full.');
+        ledger = JSON.parse(source.toString());
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      const previous = ledger[request.orderId];
+      if (previous && previous.requestHash !== request.requestHash)
+        throw new Error('Supplier order key cannot be reused for different items.');
+      const stock = await reconcileFixtureStock(fixture);
+      const available = request.items.every((item) => {
+        const supplied = stock.items.find(
+          (row: { externalProductId: string; externalVariantId: string }) =>
+            row.externalProductId === item.externalProductId &&
+            row.externalVariantId === item.externalVariantId,
+        );
+        return (
+          supplied &&
+          supplied.sku === item.sku &&
+          supplied.availability !== 'out_of_stock' &&
+          (supplied.availability === 'made_to_order' || supplied.stockQuantity >= item.quantity)
+        );
+      });
+      const receipt = previous?.receipt ?? {
+        schemaVersion: 1,
+        orderId: request.orderId,
+        requestHash: request.requestHash,
+        status: available ? 'accepted' : 'rejected',
+        supplierReference: 'BOREAL-' + request.orderId,
+      };
+      ledger[request.orderId] = { requestHash: request.requestHash, receipt };
+      const temporary = path + '.' + randomUUID();
+      await writeFile(temporary, JSON.stringify(ledger), { mode: 0o600 });
+      await rename(temporary, path);
+      return Buffer.from(JSON.stringify(receipt));
+    });
+  };
+}
 function withStockLock<T>(work: () => Promise<T>): Promise<T> {
   const next = stockLock.then(work, work);
   stockLock = next.catch(() => undefined);

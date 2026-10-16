@@ -2,7 +2,7 @@
 
 ## Current platform boundary
 
-The six-area increment supersedes older missing-feature statements below. Private references, bounded AI/OpenAI transport, durable jobs, reservation/order lifecycle and owned consumer publication/enquiry are implemented locally. Live OpenAI, real retailer provider acceptance, managed projects/email/monitoring/hosted restore remain unconfigured. Real snapshot-only stock providers cannot fulfil orders until outbound acknowledgement exists. No payments, billing, shipping, global marketplace search/moderation or 3D mesh editing is included. Hosted request-size limits and commercial retention need deployment acceptance. See CURRENT_STATE.md and DEPLOYMENT.md for current evidence and operating limits.
+The current increments supersede older missing-feature statements below. Private references, bounded AI/OpenAI transport, durable jobs, reservation/order lifecycle, optional idempotent supplier acknowledgement, password recovery and owned consumer publication/enquiry are implemented locally. Live OpenAI, real retailer provider acceptance, managed projects/SMTP/alerts/hosted restore remain unconfigured. Snapshot-only stock providers cannot fulfil orders without configuring the supported acknowledgement contract. One supplier connection per order is supported; an unknown outcome remains held for idempotent recovery. No payments, billing, shipping, global marketplace search/moderation or 3D mesh editing is included. Hosted request-size limits and commercial retention need deployment acceptance. See CURRENT_STATE.md and DEPLOYMENT.md for current evidence and operating limits.
 
 ## Earlier checkpoint limitations (historical)
 

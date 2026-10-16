@@ -1,5 +1,7 @@
 # Module ownership and dependency boundaries
 
+The 16 October MVP increment adds `packages/inventory/src/fulfilment.ts` for provider-neutral request/receipt validation, the existing server transport for DNS-pinned HTTPS POST, and `order-service.ts` plus migrations 017–018 for durable supplier admission/completion. `local-testing.ts` owns only the labelled local supplier substitute. `auth-callback.ts` and password routes own the Supabase recovery boundary. `/api/internal/operations` and the deployment/staging scripts own sanitized operational checks. None of these modules may bypass canonical geometry, tenant checks or immutable commercial records.
+
 ## New concrete capability owners
 
 | Files (under `apps/web` unless stated)                                                  | Responsibility                                                                                         | Authority boundary                                                                                    |

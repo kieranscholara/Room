@@ -29,7 +29,10 @@
     "worker:once": "node scripts/worker.mjs",
     "backup:local": "node scripts/backup-local.mjs",
     "restore:check": "node scripts/restore-check.mjs",
-    "try:customer": "node scripts/try-customer.mjs"
+    "try:customer": "node scripts/try-customer.mjs",
+    "check:deployment": "node scripts/deployment-check.mjs",
+    "check:staging": "node scripts/check-staging.mjs",
+    "monitor": "node scripts/check-staging.mjs --monitor"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

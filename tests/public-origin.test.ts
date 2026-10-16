@@ -29,8 +29,26 @@ describe('hosted authentication origin', () => {
     vi.stubEnv('ROOMSELL_PUBLIC_ORIGIN', origin);
     expect(() => applicationOrigin(request)).toThrow();
   });
-  it('preserves the verified local development origin', () => {
+  it('uses the browser loopback host instead of the internal bind address', () => {
     target.local = true;
-    expect(applicationOrigin(request)).toBe('http://untrusted.example');
+    const local = {
+      nextUrl: new URL('http://0.0.0.0:3100/api/auth/recover'),
+      headers: new Headers({ host: '127.0.0.1:3100' }),
+    } as unknown as NextRequest;
+    expect(applicationOrigin(local)).toBe('http://127.0.0.1:3100');
+  });
+  it.each([
+    'untrusted.example',
+    'user:secret@localhost:3000',
+    'localhost:3000/path',
+    'localhost:3000?next=elsewhere',
+  ])('rejects an untrusted local host %s', (host) => {
+    target.local = true;
+    expect(() =>
+      applicationOrigin({
+        nextUrl: new URL('http://0.0.0.0:3100'),
+        headers: new Headers({ host }),
+      } as unknown as NextRequest),
+    ).toThrow();
   });
 });

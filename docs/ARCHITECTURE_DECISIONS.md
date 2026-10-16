@@ -1,5 +1,15 @@
 # Architecture decision proposals
 
+## ADR-005 — Durable supplier acknowledgement before externally managed fulfilment
+
+**Accepted scope:** The user's 16 October 2026 request authorizes completing the local MVP with a fictional supplier. Retain the existing order service/database and add an optional custom REST fulfilment contract. No new package dependency or provider-native API is required.
+
+**Decision:** Persist a frozen request under the retailer transaction before sending. Pin mapped external identities, quantities, order UUID and request hash. Require a same-origin HTTPS endpoint, encrypted credential, strict matching terminal receipt and supplier-side idempotency. Commit acknowledgement, stock and order status atomically. Definitive rejection leaves stock unchanged; unknown outcomes retain a cancellation/configuration/stock fence and recover by retrying the original key. Only one supplier connection per order is supported initially. Snapshot-only feeds remain read-only.
+
+**Tradeoff:** Availability is reduced while a supplier outcome is unknown. Retrying the same request and alerting after five minutes is safer than generating another vendor order or releasing stock prematurely. A permanently unavailable vendor requires operator reconciliation; no automatic fence bypass is exposed. Boreal Living is a labelled in-process substitute, not proof of a real vendor's idempotency.
+
+**Evidence:** Migrations 017–018, supplier schemas/transport, order service, fixture supplier ledger and unit/database/browser acceptance. Alternatives such as distributed two-phase commit, multi-supplier compensation or vendor-native APIs are separate scope. Existing scene/pricing snapshots remain unchanged.
+
 ADR-001–003 were accepted by the user’s implementation approval on 14 October 2026. The existing app, workspace and scene contract are retained. ADR-004 was accepted by the subsequent explicit six-area implementation request. Its initial publication/consumer ownership workflow is now implemented and locally tested in migrations 013/016; hosted rollout remains gated.
 
 ## ADR-001 — Keep the existing modular monolith; extract orchestration only for a real worker

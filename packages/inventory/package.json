@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./fulfilment": "./src/fulfilment.ts",
     "./server": "./src/server.ts"
   },
   "dependencies": {

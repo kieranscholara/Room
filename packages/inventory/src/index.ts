@@ -46,6 +46,7 @@ export interface InventoryConnection {
   name: string;
   provider: 'custom_rest';
   endpoint: string;
+  orderEndpoint?: string | null;
   enabled: boolean;
   revision: number;
   credentialConfigured: boolean;

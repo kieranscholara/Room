@@ -249,12 +249,17 @@ test('real validated GLB, proxy geometry, selection and revisions stay synchroni
   await expect(viewer).toHaveAttribute('data-preview', 'true');
   await page.getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(proxy).toHaveAttribute('data-z', '4.1');
+  await expect(page.getByRole('spinbutton', { name: 'Z position (m)', exact: true })).toHaveValue('4.1');
   await page.getByRole('spinbutton', { name: 'Z position (m)', exact: true }).fill('3.5');
   await page.getByRole('spinbutton', { name: 'Rotation (degrees)', exact: true }).fill('90');
   await page.getByRole('button', { name: 'Preview placement', exact: true }).click();
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
   await expect(viewer).toHaveAttribute('data-scene-version', '3');
   const accepted = await apiScene(page, projectId);
+  expect(accepted.objects.find((object) => object.id === initial.objects[1].id)?.transform).toMatchObject({
+    z: 3.5,
+    rotation: Math.PI / 2,
+  });
   expect(accepted.objects[0]).toEqual(initial.objects[0]);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(proxy).toHaveAttribute('data-z', '4.1');

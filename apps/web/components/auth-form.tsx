@@ -164,6 +164,11 @@ export function AuthForm({
             {mode === 'login' ? 'Create an account' : 'Sign in'}
           </Link>
         </p>
+        {mode === 'login' && (
+          <p>
+            <Link href="/auth/forgot-password">Forgot your password?</Link>
+          </p>
+        )}
         <Link href="/demo" className="account-small account-muted">
           Explore the synthetic editor demo
         </Link>

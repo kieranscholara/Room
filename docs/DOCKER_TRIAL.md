@@ -14,6 +14,10 @@ The command installs the locked dependencies, starts/reuses the official local S
 
 The container uses host networking to reach the official CLI's loopback-published Supabase services. Port 3000 must be free; an unrelated/mismatched app is left untouched. Stop an existing RoomSell host server before using the Docker trial. The launcher mounts the local Docker engine socket so the CLI can manage its sibling service containers. Use it only as a local development tool.
 
+On Windows, you can also double-click `Start-RoomSell.cmd` after starting Docker Desktop. It checks the Docker daemon and keeps startup errors visible. The Windows batch entry point has been reviewed; the Docker build/runtime have been exercised on Linux, not on a Windows machine.
+
+Builds use ordinary Docker networking. Only the running app requests host networking. If an older downloaded copy reports `additional privileges requested: pass "--allow=network.host"`, obtain the updated branch or remove **only** `network: host` nested inside `build:` in `compose.yaml`. Keep the separate `network_mode: host` runtime setting. `COMPOSE_BAKE=false` is not a reliable workaround on all Docker versions.
+
 ## Try the consultation
 
 1. Enter as retailer (Alex), inspect Catalogue and Inventory. Seven fictional products cover bed, wardrobe, bedside, rug and desk, with illustrative images and explicit measured dimensions.
@@ -21,7 +25,7 @@ The container uses host networking to reach the official CLI's loopback-publishe
 3. Move the bed using Smart Rearrange, review the preview and accept. Check that locked furniture stays exact. Switch between 2D and 3D; reload to verify persistence.
 4. Request assistance using **Local fictional-customer test adapter**. The worker returns checked advice; review and explicitly accept a layout. This test output is not from OpenAI.
 5. View/upload a room photograph, review pricing and issue a quotation/PDF.
-6. Return to `/testing` and enter as customer (Maya) to review the shared design and quotation. You can reserve, confirm or cancel the fictional order; as retailer you can record fulfilment.
+6. Return to `/testing` and enter as customer (Maya) to review the shared design and quotation. You can reserve, confirm or cancel the fictional order; as retailer you can record fulfilment. A durable Boreal supplier acknowledgement appears on the order. Repeating fulfilment reuses the same supplier reference and does not decrement stock twice.
 7. In Inventory, change a simulated upstream SKU quantity and synchronize. The simulated provider reconciles fulfilled quantities; no actual retailer is contacted.
 
 No payment is collected and no real email is sent. If you make changes, the next launch preserves them rather than resetting the consultation.

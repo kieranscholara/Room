@@ -60,7 +60,7 @@ enabled = false
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["http://localhost:3000", "http://127.0.0.1:3100", "http://localhost:3100", "http://127.0.0.1:3000/auth/confirm", "http://localhost:3000/auth/confirm", "http://127.0.0.1:3000/auth/callback", "http://localhost:3000/auth/callback"]
+additional_redirect_urls = ["http://localhost:3000", "http://127.0.0.1:3100", "http://localhost:3100", "http://127.0.0.1:3000/auth/confirm", "http://localhost:3000/auth/confirm", "http://127.0.0.1:3000/auth/callback", "http://localhost:3000/auth/callback", "http://127.0.0.1:3100/auth/callback", "http://localhost:3100/auth/callback", "http://127.0.0.1:3000/auth/recovery", "http://127.0.0.1:3100/auth/recovery", "http://localhost:3000/auth/recovery", "http://localhost:3100/auth/recovery"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10

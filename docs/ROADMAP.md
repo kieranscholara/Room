@@ -1,6 +1,6 @@
 # Architecture-aligned roadmap
 
-Status: 14 October 2026. The user approved implementation after the architecture audit. Steps 1–4 below have been implemented in the existing application; final verification is recorded in VALIDATION.md. The original 2D editor and scene v2 remain the foundation.
+Status: 16 October 2026. The user approved implementation after the architecture audit and completion of the fictional-customer MVP. Steps 1–4 below have been implemented in the existing application; verification is recorded in VALIDATION.md. The original 2D editor and scene v2 remain the foundation. The latest increment closes Docker build portability, password recovery, supplier acknowledgement/rejection and operational-check gaps; see MVP_STATUS.md.
 
 ## Actual foundation
 
@@ -8,7 +8,7 @@ Implemented: strict metre-based scene v2/v1 migration; pure rotated geometry and
 
 Added after approval: exclusive runtime/test targets, explicit demo gate, preview compatibility fingerprints, shared catalogue/render contracts and exact currency display; synchronized read-only 3D with validated models/proxies; configured exact pricing, immutable quotations/PDFs; encrypted custom REST inventory connectors with stable mappings, atomic reconciliation and freshness.
 
-The six-area increment now adds private references, bounded AI intentions/OpenAI transport, durable jobs, reservations/orders, deployment/restore tooling and separate consumer ownership/publication. See CURRENT_STATE.md and TEST_CUSTOMER.md. Remaining external work: actual retailer/provider acceptance, OpenAI credentials, Vercel/Supabase projects, SMTP/alerts and hosted restore; real snapshot-feed fulfilment requires upstream order acknowledgement.
+The six-area increment adds private references, bounded AI intentions/OpenAI transport, durable jobs, reservations/orders, deployment/restore tooling and separate consumer ownership/publication. Supplier fulfilment now supports the optional custom REST acknowledgement contract, exercised with Boreal Living. See CURRENT_STATE.md and TEST_CUSTOMER.md. Remaining external work: actual retailer/provider acceptance, securely configured OpenAI credentials, Vercel/Supabase projects, SMTP/alerts and hosted restore. These cannot be established by fictional supplier tests.
 
 ## Delivery sequence
 

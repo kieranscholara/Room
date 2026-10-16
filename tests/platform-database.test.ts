@@ -136,6 +136,45 @@ describe.skipIf(process.env.ROOMSELL_RUN_DATABASE_TESTS !== '1')(
         p_action: action,
       });
     }
+    async function supplierOrder() {
+      const p = await project(),
+        q = await quote(p.project.id),
+        order = ok(await reserve(p.project.id, q.id));
+      ok(await transition(order.id, 'reserved', 'confirm'));
+      const connection = randomUUID();
+      await db.query(
+        "insert into public.inventory_connections(id,organisation_id,name,provider,endpoint,order_endpoint) values($1,$2,'Fictional supplier contract','custom_rest','https://inventory.boreal-living.test/snapshot','https://inventory.boreal-living.test/fulfilments')",
+        [connection, org],
+      );
+      await db.query(
+        "insert into public.inventory_mappings(organisation_id,connection_id,external_product_id,external_variant_id,product_id,variant_id) values($1,$2,'external','external-v',$3,$4)",
+        [org, connection, product, variant],
+      );
+      return { order, connection };
+    }
+    function beginSupplier(orderId: string, actor = owner.id) {
+      return service.rpc('begin_supplier_fulfilment', { p_order_id: orderId, p_actor_id: actor });
+    }
+    function supplierReceipt(command: { order_id: string; request_hash: string }) {
+      return {
+        schemaVersion: 1,
+        orderId: command.order_id,
+        requestHash: command.request_hash,
+        status: 'accepted',
+        supplierReference: 'BOREAL-' + command.order_id,
+      };
+    }
+    function finishSupplier(
+      command: { order_id: string; request_hash: string },
+      receipt = supplierReceipt(command),
+      actor = owner.id,
+    ) {
+      return service.rpc('finish_supplier_fulfilment', {
+        p_order_id: command.order_id,
+        p_actor_id: actor,
+        p_receipt: receipt,
+      });
+    }
     async function publish(enabled = true) {
       const current = ok(await service.from('published_offers').select('revision').eq('variant_id', variant));
       return ok(
@@ -286,6 +325,7 @@ describe.skipIf(process.env.ROOMSELL_RUN_DATABASE_TESTS !== '1')(
       if (!org) return;
       await db.query('delete from public.tenant_jobs where organisation_id=$1', [org]);
       await db.query('delete from public.retailer_orders where organisation_id=$1', [org]);
+      await db.query('delete from public.inventory_connections where organisation_id=$1', [org]);
       ok(
         await service
           .from('product_variants')
@@ -503,6 +543,129 @@ describe.skipIf(process.env.ROOMSELL_RUN_DATABASE_TESTS !== '1')(
       } finally {
         await db.query('delete from public.inventory_connections where id=$1', [connection]);
       }
+    });
+    it('pins one supplier request across concurrent starts and denies buyers and foreign actors', async () => {
+      const { order } = await supplierOrder();
+      for (const actor of [buyer.id, foreign.id])
+        expect((await beginSupplier(order.id, actor)).error?.code).toBe('42501');
+      expect(
+        (await owner.client.rpc('begin_supplier_fulfilment', { p_order_id: order.id, p_actor_id: owner.id }))
+          .error?.code,
+      ).toBe('42501');
+      const [a, b] = await Promise.all([beginSupplier(order.id), beginSupplier(order.id)]);
+      expect(ok(a)).toEqual(ok(b));
+      expect(ok(a).request.items).toEqual([
+        { externalProductId: 'external', externalVariantId: 'external-v', sku: 'PLATFORM-A', quantity: 1 },
+      ]);
+      expect(ok(await foreign.client.from('supplier_fulfilments').select('*'))).toEqual([]);
+      expect(
+        (await service.from('supplier_fulfilments').update({ receipt: {} }).eq('order_id', order.id)).error
+          ?.code,
+      ).toBe('42501');
+    });
+    it('keeps cancellation, supplier configuration and stock fenced after a lost acknowledgement', async () => {
+      const { order, connection } = await supplierOrder(),
+        command = ok(await beginSupplier(order.id));
+      expect((await transition(order.id, 'confirmed', 'cancel', owner.id)).error?.code).toBe('40001');
+      expect((await transition(order.id, 'confirmed', 'fulfil', owner.id)).error?.code).toBe('23514');
+      expect(
+        (await service.from('inventory_connections').update({ enabled: false }).eq('id', connection)).error
+          ?.code,
+      ).toBe('40001');
+      expect(
+        (await service.from('inventory_mappings').delete().eq('connection_id', connection)).error?.code,
+      ).toBe('40001');
+      expect(
+        (await service.from('product_variants').update({ stock_quantity: 1 }).eq('id', variant)).error?.code,
+      ).toBe('40001');
+      expect(ok(await beginSupplier(order.id)).request).toEqual(command.request);
+      expect(ok(await finishSupplier(command)).status).toBe('fulfilled');
+    });
+    it('rejects a mismatched acknowledgement and fulfils exactly once across concurrent retries', async () => {
+      const { order } = await supplierOrder(),
+        command = ok(await beginSupplier(order.id));
+      expect(
+        (await finishSupplier(command, { ...supplierReceipt(command), requestHash: 'b'.repeat(64) })).error
+          ?.code,
+      ).toBe('23514');
+      expect(
+        ok(await service.from('retailer_orders').select('status').eq('id', order.id).single()).status,
+      ).toBe('confirmed');
+      const results = await Promise.all([finishSupplier(command), finishSupplier(command)]);
+      expect(results.map((r) => ok(r).status)).toEqual(['fulfilled', 'fulfilled']);
+      expect(
+        ok(await service.from('product_variants').select('stock_quantity').eq('id', variant).single())
+          .stock_quantity,
+      ).toBe(3);
+      expect(
+        (await finishSupplier(command, { ...supplierReceipt(command), supplierReference: 'changed' })).error
+          ?.code,
+      ).toBe('40001');
+      expect(ok(await beginSupplier(order.id)).receipt).toEqual(supplierReceipt(command));
+    });
+    it('rechecks current staff permission before completing a supplier acknowledgement', async () => {
+      const { order } = await supplierOrder();
+      ok(
+        await service
+          .from('organisation_members')
+          .update({ role: 'salesperson' })
+          .eq('organisation_id', org)
+          .eq('user_id', other.id)
+          .select(),
+      );
+      const command = ok(await beginSupplier(order.id, other.id));
+      ok(
+        await service
+          .from('organisation_members')
+          .update({ role: 'customer' })
+          .eq('organisation_id', org)
+          .eq('user_id', other.id)
+          .select(),
+      );
+      expect((await finishSupplier(command, supplierReceipt(command), other.id)).error?.code).toBe('42501');
+      expect(ok(await finishSupplier(command)).status).toBe('fulfilled');
+    });
+    it('records a definitive supplier rejection without decrementing stock and permits cancellation', async () => {
+      const { order } = await supplierOrder(),
+        command = ok(await beginSupplier(order.id));
+      const rejected = { ...supplierReceipt(command), status: 'rejected' };
+      expect(ok(await finishSupplier(command, rejected)).status).toBe('confirmed');
+      expect((await transition(order.id, 'confirmed', 'fulfil', owner.id)).error?.code).toBe('23514');
+      expect(
+        ok(await service.from('product_variants').select('stock_quantity').eq('id', variant).single())
+          .stock_quantity,
+      ).toBe(4);
+      expect(ok(await transition(order.id, 'confirmed', 'cancel', buyer.id)).status).toBe('cancelled');
+    });
+    it('defers another order using the same supplier until the uncertain command is resolved', async () => {
+      const { order } = await supplierOrder(),
+        pending = ok(await beginSupplier(order.id));
+      const secondProject = await project(),
+        secondQuote = await quote(secondProject.project.id),
+        secondOrder = ok(await reserve(secondProject.project.id, secondQuote.id));
+      ok(await transition(secondOrder.id, 'reserved', 'confirm'));
+      expect((await beginSupplier(secondOrder.id)).error?.code).toBe('40001');
+      ok(await finishSupplier(pending));
+      const next = ok(await beginSupplier(secondOrder.id));
+      expect(ok(await finishSupplier(next)).status).toBe('fulfilled');
+      expect(
+        ok(await service.from('product_variants').select('stock_quantity').eq('id', variant).single())
+          .stock_quantity,
+      ).toBe(2);
+    });
+    it('does not send a supplier order when stock no longer covers confirmed orders', async () => {
+      const { order } = await supplierOrder();
+      ok(
+        await service
+          .from('product_variants')
+          .update({ stock_quantity: 0, availability: 'out_of_stock' })
+          .eq('id', variant)
+          .select(),
+      );
+      expect((await beginSupplier(order.id)).error?.code).toBe('40001');
+      expect(
+        ok(await service.from('supplier_fulfilments').select('order_id').eq('order_id', order.id)),
+      ).toEqual([]);
     });
     it('requires explicit order access and blocks cross-tenant order actors', async () => {
       const p = await project(),

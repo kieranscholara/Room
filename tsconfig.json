@@ -18,6 +18,7 @@
       "@roomsell/pricing": ["packages/pricing/src/index.ts"],
       "@roomsell/inventory": ["packages/inventory/src/index.ts"],
       "@roomsell/inventory/server": ["packages/inventory/src/server.ts"],
+      "@roomsell/inventory/fulfilment": ["packages/inventory/src/fulfilment.ts"],
       "@roomsell/scene-core": ["packages/scene-core/src/index.ts"],
       "@roomsell/geometry": ["packages/geometry/src/index.ts"],
       "@roomsell/layout-engine": ["packages/layout-engine/src/index.ts"],
