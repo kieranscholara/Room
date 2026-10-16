@@ -383,6 +383,151 @@ describe.skipIf(process.env.ROOMSELL_RUN_DATABASE_TESTS !== '1')(
       ).toBe('23514');
       expect((await buyer.client.from('room_references').insert({})).error?.code).toBe('42501');
     });
+    async function photoReference(projectId: string) {
+      const id = randomUUID(),
+        path = org + '/' + projectId + '/' + id,
+        bytes = await readFile('fixtures/boreal-living/photo-demo/room.png');
+      paths.push(path);
+      ok(await service.storage.from('room-references').upload(path, bytes, { contentType: 'image/png' }));
+      return ok(
+        await service.rpc('room_reference_write', {
+          p_project_id: projectId,
+          p_actor_id: owner.id,
+          p_reference_id: id,
+          p_asset: { path, name: 'Synthetic photo', mimeType: 'image/png', sizeBytes: bytes.length },
+        }),
+      );
+    }
+    function photoWrite(
+      projectId: string,
+      referenceId: string,
+      revision = 0,
+      body: Record<string, unknown> = {},
+      actor = owner.id,
+    ) {
+      return service.rpc('write_photo_workspace', {
+        p_project_id: projectId,
+        p_reference_id: referenceId,
+        p_actor_id: actor,
+        p_expected_revision: revision,
+        p_body: { calibration: null, regions: [], backgroundReferenceId: null, ...body },
+      });
+    }
+    it('scopes photograph setup to its project and tenant and checks revisions', async () => {
+      const p = await project(),
+        otherProject = await project(),
+        ref = await photoReference(p.project.id);
+      expect(ok(await photoWrite(p.project.id, ref.id)).revision).toBe(1);
+      expect((await photoWrite(p.project.id, ref.id)).error?.code).toBe('40001');
+      expect((await photoWrite(otherProject.project.id, ref.id)).error?.code).toBe('P0002');
+      expect((await photoWrite(p.project.id, ref.id, 1, {}, foreign.id)).error?.code).toBe('42501');
+      expect(
+        ok(await buyer.client.from('photo_workspaces').select('reference_id').eq('reference_id', ref.id)),
+      ).toHaveLength(1);
+      expect(
+        ok(await foreign.client.from('photo_workspaces').select('reference_id').eq('reference_id', ref.id)),
+      ).toHaveLength(0);
+      expect(
+        (await buyer.client.from('photo_workspaces').update({ revision: 99 }).eq('reference_id', ref.id))
+          .error?.code,
+      ).toBe('42501');
+      expect(
+        (
+          await service
+            .from('photo_workspaces')
+            .insert({ reference_id: ref.id, project_id: p.project.id, organisation_id: org })
+        ).error?.code,
+      ).toBe('42501');
+    });
+    it('requires current confirmed room dimensions for photograph calibration', async () => {
+      const p = await project(),
+        ref = await photoReference(p.project.id),
+        calibration = JSON.parse(
+          await readFile('fixtures/boreal-living/photo-demo/calibration.json', 'utf8'),
+        );
+      await db.query(
+        "update public.scenes set data=jsonb_set(data,'{room,measurementsConfirmed}','true') where project_id=$1",
+        [p.project.id],
+      );
+      calibration.roomWidth = p.scene.data.room.width;
+      calibration.roomDepth = p.scene.data.room.depth;
+      expect(ok(await photoWrite(p.project.id, ref.id, 0, { calibration })).revision).toBe(1);
+      expect(
+        (await photoWrite(p.project.id, ref.id, 1, { calibration: { ...calibration, roomWidth: 30 } })).error
+          ?.code,
+      ).toBe('40001');
+    });
+    it('applies only a completed cleanup for the exact source revision, preserving the original', async () => {
+      const p = await project(),
+        ref = await photoReference(p.project.id),
+        output = await photoReference(p.project.id);
+      ok(await photoWrite(p.project.id, ref.id));
+      expect(
+        (await photoWrite(p.project.id, ref.id, 1, { backgroundReferenceId: output.id })).error?.code,
+      ).toBe('40001');
+      const job = ok(
+        await enqueue(p.project.id, owner.id, 'photo_cleanup', randomUUID(), {
+          referenceId: ref.id,
+          expectedRevision: 1,
+        }),
+      );
+      const claim = ok(await service.rpc('claim_tenant_job'));
+      expect(claim.id).toBe(job.id);
+      ok(
+        await service.rpc('finish_tenant_job', {
+          p_job_id: job.id,
+          p_lease_token: claim.lease_token,
+          p_result: { referenceId: ref.id, workspaceRevision: 1, generatedReferenceId: output.id },
+          p_error_code: null,
+          p_retryable: false,
+        }),
+      );
+      expect(
+        ok(await photoWrite(p.project.id, ref.id, 1, { backgroundReferenceId: output.id })).revision,
+      ).toBe(2);
+      expect(ok(await buyer.client.from('room_references').select('id').eq('id', ref.id))).toHaveLength(1);
+      ok(
+        await service.rpc('room_reference_write', {
+          p_project_id: p.project.id,
+          p_actor_id: owner.id,
+          p_reference_id: output.id,
+          p_asset: null,
+        }),
+      );
+      expect(
+        ok(
+          await buyer.client
+            .from('photo_workspaces')
+            .select('background_reference_id')
+            .eq('reference_id', ref.id)
+            .single(),
+        ).background_reference_id,
+      ).toBeNull();
+      expect(
+        (await photoWrite(p.project.id, ref.id, 2, { backgroundReferenceId: output.id })).error?.code,
+      ).toBe('40001');
+    });
+    it('cancels photo jobs after edit permission is revoked and shares the AI hourly quota', async () => {
+      const p = await project();
+      ok(await enqueue(p.project.id, buyer.id, 'photo_analysis'));
+      ok(
+        await service
+          .from('project_access')
+          .delete()
+          .eq('project_id', p.project.id)
+          .eq('user_id', buyer.id)
+          .select(),
+      );
+      const claim = await service.rpc('claim_tenant_job');
+      expect(claim.error).toBeNull();
+      expect(claim.data).toBeNull();
+      expect(
+        ok(await service.from('tenant_jobs').select('status').eq('actor_id', buyer.id).single()).status,
+      ).toBe('cancelled');
+      for (let i = 0; i < 20; i++)
+        ok(await enqueue(p.project.id, owner.id, i % 2 ? 'photo_cleanup' : 'ai_design'));
+      expect((await enqueue(p.project.id, owner.id, 'photo_analysis')).error?.code).toBe('23514');
+    });
     it('deduplicates queued jobs but rejects payload reuse and foreign actors', async () => {
       const p = await project(),
         key = randomUUID(),

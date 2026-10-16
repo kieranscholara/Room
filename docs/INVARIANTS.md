@@ -1,5 +1,14 @@
 # Architecture invariants
 
+## Photo selling invariants
+
+- One canonical metric scene feeds 2D, 3D and calibrated photograph views. Camera calibration never rescales catalogue geometry.
+- Photo calibration and processing use the current project authority and separate revision checks. Arbitrary source/background references cannot cross project or tenant boundaries.
+- AI image detections are approximate labels/rectangles, never trusted measurements, SKUs, physical clearance or lock changes.
+- Original photograph bytes remain immutable. Cleanup changes only explicit reviewed pixel areas and needs a current completed result before application. Original furniture removal and catalogue object removal are distinct operations.
+- A retained visual object becomes collision geometry only through a confirmed measured obstacle. Manual rectangular foreground crops are labelled visual areas, not inferred depth.
+- Explicit local fixture mode cannot analyse arbitrary real photographs: the synthetic adapter verifies tenant and exact source pixels. Fictional models/data are labelled.
+
 ## Additional enforced platform invariants
 
 - Private room photographs are visual references, never confirmed measurements. Access requires the current project grant. OpenAI receives at most two references only after explicit selection.

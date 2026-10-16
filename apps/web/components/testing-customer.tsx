@@ -7,11 +7,15 @@ import './workspace-business.css';
 export function TestingCustomer() {
   const router = useRouter(),
     [ready, setReady] = useState(false),
+    [projectId, setProjectId] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   useEffect(() => {
-    void accountRequest('/api/testing/status')
-      .then(() => setReady(true))
+    void accountRequest<{ projectId: string }>('/api/testing/status')
+      .then((value) => {
+        setReady(true);
+        setProjectId(value.projectId);
+      })
       .catch((reason) => setError(reason.message));
   }, []);
   return (
@@ -29,6 +33,29 @@ export function TestingCustomer() {
             {error}
           </p>
         )}
+        <p>
+          Try placing dimensioned furniture into a calibrated synthetic room image. The separate room
+          photograph is available for your own calibration; the synthetic example has known measurements and a
+          recorded removal adapter.
+        </p>
+        <Button
+          disabled={!ready || busy}
+          variant="primary"
+          onClick={async () => {
+            setBusy(true);
+            setError('');
+            try {
+              await accountRequest('/api/testing/session', { method: 'POST', body: { persona: 'retailer' } });
+              router.push(`/projects/${projectId}?view=photo&photo=synthetic`);
+              router.refresh();
+            } catch (reason) {
+              setError(reason instanceof Error ? reason.message : 'Could not open photo demo.');
+              setBusy(false);
+            }
+          }}
+        >
+          Open photo placement demo
+        </Button>
         <div className="business-card-list">
           {(['retailer', 'customer', 'consumer'] as const).map((persona) => (
             <article className="business-record" key={persona}>

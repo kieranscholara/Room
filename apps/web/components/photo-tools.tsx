@@ -1,0 +1,373 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { Button, Field } from '@roomsell/ui';
+import type { PhotoRegion, PhotoWorkspace } from '../lib/photo-contract';
+import { photoRegionSchema } from '../lib/photo-contract';
+import { useEditor } from '../lib/editor-store';
+import { accountRequest } from './workspace-frame';
+interface PhotoJob {
+  id: string;
+  kind: string;
+  status: string;
+  errorCode: string | null;
+  result: {
+    referenceId: string;
+    workspaceRevision: number;
+    generatedReferenceId?: string;
+    analysis?: { summary: string; objects: { label: string; bounds: PhotoRegion['bounds'] }[] };
+  } | null;
+}
+interface Status {
+  openAiConfigured: boolean;
+  testAdapterEnabled: boolean;
+  jobs: PhotoJob[];
+}
+export function PhotoPhotoTools({
+  projectId,
+  workspace,
+  readOnly,
+  save,
+  onError,
+  imageSize,
+  workspaceSaving = false,
+}: {
+  projectId: string;
+  workspace: PhotoWorkspace;
+  readOnly: boolean;
+  save: (update: Partial<PhotoWorkspace>) => Promise<PhotoWorkspace | undefined>;
+  onError: (message: string) => void;
+  imageSize: { width: number; height: number };
+  workspaceSaving?: boolean;
+}) {
+  const [status, setStatus] = useState<Status | null>(null),
+    [provider, setProvider] = useState<'openai' | 'test'>('openai'),
+    [consent, setConsent] = useState(false),
+    [regions, setRegions] = useState(workspace.regions),
+    [pending, setPending] = useState(false),
+    [obstacle, setObstacle] = useState({ x: 1, z: 1, width: 1, depth: 1, name: 'Existing furniture' });
+  const { scene, proposal, busy, preview } = useEditor();
+  const path = `/api/projects/${projectId}/photos/${workspace.referenceId}/jobs`;
+  useEffect(() => {
+    setRegions(workspace.regions);
+  }, [workspace]);
+  useEffect(() => {
+    setConsent(false);
+    setStatus(null);
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const value = await accountRequest<Status>(path, { signal: controller.signal });
+        if (controller.signal.aborted) return;
+        setStatus(value);
+        if (!value.openAiConfigured && value.testAdapterEnabled) setProvider('test');
+      } catch {
+        if (!controller.signal.aborted) onError('Photograph processing status is unavailable.');
+      }
+    };
+    void load();
+    return () => {
+      controller.abort();
+    };
+  }, [path]);
+  const changed = JSON.stringify(regions) !== JSON.stringify(workspace.regions),
+    running = pending || Boolean(status?.jobs.some((j) => ['queued', 'running'].includes(j.status)));
+  async function queue(kind: 'photo_analysis' | 'photo_cleanup') {
+    setPending(true);
+    onError('');
+    try {
+      await accountRequest(path, {
+        method: 'POST',
+        body: {
+          kind,
+          provider,
+          referenceId: workspace.referenceId,
+          expectedRevision: workspace.revision,
+          consent: true,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+      const next = await accountRequest<Status>(path);
+      setStatus(next);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Photograph request failed.');
+    } finally {
+      setPending(false);
+    }
+  }
+  // Poll jobs created after initial mount, aborting when this photograph is left.
+  const activeId = status?.jobs.find((j) => ['queued', 'running'].includes(j.status))?.id;
+  useEffect(() => {
+    if (!activeId) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const value = await accountRequest<Status>(path, { signal: controller.signal });
+        if (controller.signal.aborted) return;
+        setStatus(value);
+        if (value.jobs.some((j) => ['queued', 'running'].includes(j.status)))
+          timer = setTimeout(() => void poll(), 1800);
+      } catch {
+        if (!controller.signal.aborted) onError('Photograph job status could not be loaded.');
+      }
+    };
+    timer = setTimeout(() => void poll(), 1000);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [activeId, path]);
+  if (readOnly) return null;
+  function update(id: string, value: Partial<PhotoRegion>) {
+    setRegions((old) => old.map((r) => (r.id === id ? { ...r, ...value } : r)));
+  }
+  const analysis = status?.jobs.find(
+    (j) =>
+      j.kind === 'photo_analysis' &&
+      j.status === 'completed' &&
+      j.result?.workspaceRevision === workspace.revision,
+  )?.result?.analysis;
+  const cleanup = status?.jobs.find(
+    (j) =>
+      j.kind === 'photo_cleanup' &&
+      j.status === 'completed' &&
+      j.result?.workspaceRevision === workspace.revision,
+  );
+  const disabled = running || busy || workspaceSaving || Boolean(proposal);
+  return (
+    <div className="photo-tools" aria-label="Existing furniture in photograph">
+      <h3>Existing furniture in the photograph</h3>
+      <p>
+        Review suggested areas before removal. AI selections are approximate image areas; they do not
+        establish measurements or physical clearance.
+      </p>
+      <Field label="Photograph AI provider">
+        <select
+          aria-label="Photograph AI provider"
+          value={provider}
+          onChange={(e) => {
+            setProvider(e.target.value as 'openai' | 'test');
+            setConsent(false);
+          }}
+        >
+          <option value="openai" disabled={!status?.openAiConfigured}>
+            OpenAI · live photograph processing
+          </option>
+          {status?.testAdapterEnabled && (
+            <option value="test">Local fixture adapter · synthetic demo only</option>
+          )}
+        </select>
+      </Field>
+      {provider === 'openai' ? (
+        <label>
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> I consent
+          to sending this selected photograph to OpenAI for analysis or removal.
+        </label>
+      ) : (
+        <p>
+          Demonstration only: recorded selections and an empty reference for the labelled synthetic room. No
+          real photograph is analysed.
+        </p>
+      )}
+      <Button
+        disabled={disabled || changed || (provider === 'openai' && (!consent || !status?.openAiConfigured))}
+        onClick={() => void queue('photo_analysis')}
+      >
+        Scan room photograph
+      </Button>
+      <Button
+        disabled={disabled || regions.length >= 30}
+        onClick={() =>
+          setRegions((old) => [
+            ...old,
+            {
+              id: crypto.randomUUID(),
+              label: 'Existing furniture',
+              bounds: { x: 0.2, y: 0.2, width: 0.2, height: 0.2 },
+              disposition: 'keep',
+              foreground: false,
+            },
+          ])
+        }
+      >
+        Add furniture selection
+      </Button>
+      {analysis && (
+        <div className="account-notice">
+          <p>{analysis.summary}</p>
+          <Button
+            disabled={disabled || changed}
+            onClick={() =>
+              setRegions(
+                analysis.objects.map((item) => ({
+                  ...item,
+                  id: crypto.randomUUID(),
+                  disposition: 'keep',
+                  foreground: false,
+                })),
+              )
+            }
+          >
+            Use detected selections
+          </Button>
+        </div>
+      )}
+      <p>
+        Image: {imageSize.width} × {imageSize.height} px. Selection coordinates below are percentages of the
+        photograph.
+      </p>
+      {regions.map((region, index) => (
+        <div className="photo-analysis-item" key={region.id}>
+          <Field label={`Selection ${index + 1} label`}>
+            <input
+              aria-label={`Selection ${index + 1} label`}
+              value={region.label}
+              onChange={(e) => update(region.id, { label: e.target.value })}
+            />
+          </Field>
+          <div className="photo-fields">
+            {(['x', 'y', 'width', 'height'] as const).map((key) => (
+              <Field key={key} label={`${key} (%)`}>
+                <input
+                  aria-label={`Selection ${index + 1} ${key} (%)`}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={Number((region.bounds[key] * 100).toFixed(2))}
+                  onChange={(e) =>
+                    update(region.id, { bounds: { ...region.bounds, [key]: Number(e.target.value) / 100 } })
+                  }
+                />
+              </Field>
+            ))}
+          </div>
+          <Field label="Existing object action">
+            <select
+              aria-label={`Selection ${index + 1} action`}
+              value={region.disposition}
+              onChange={(e) =>
+                update(region.id, { disposition: e.target.value as 'keep' | 'remove', foreground: false })
+              }
+            >
+              <option value="keep">Keep in photograph</option>
+              <option value="remove">Remove from photograph</option>
+            </select>
+          </Field>
+          <label>
+            <input
+              type="checkbox"
+              disabled={region.disposition !== 'keep'}
+              checked={region.foreground}
+              onChange={(e) => update(region.id, { foreground: e.target.checked })}
+            />{' '}
+            Keep this rectangular area in front of new products
+          </label>
+          <Button
+            disabled={disabled}
+            onClick={() => setRegions((old) => old.filter((r) => r.id !== region.id))}
+          >
+            Discard selection {index + 1}
+          </Button>
+        </div>
+      ))}
+      <Button
+        variant="primary"
+        disabled={disabled || !changed}
+        onClick={async () => {
+          const parsed = regions.map((r) => photoRegionSchema.safeParse(r));
+          if (parsed.some((r) => !r.success)) {
+            onError('Check selection labels and bounds: every area must stay inside the photograph.');
+            return;
+          }
+          await save({ regions });
+        }}
+      >
+        Save reviewed selections
+      </Button>
+      <Button
+        disabled={
+          disabled ||
+          changed ||
+          !workspace.regions.some((r) => r.disposition === 'remove') ||
+          (provider === 'openai' && (!consent || !status?.openAiConfigured))
+        }
+        onClick={() => void queue('photo_cleanup')}
+      >
+        Remove reviewed areas from photo
+      </Button>
+      {running && (
+        <p role="status">
+          Processing photograph in the background. Furniture movement uses the calibrated view and does not
+          call AI.
+        </p>
+      )}
+      {status?.jobs.slice(0, 3).map((job) => (
+        <p key={job.id} role="status">
+          {job.kind === 'photo_analysis' ? 'Room scan' : 'Photo cleanup'}: {job.status}
+          {job.errorCode ? ` (${job.errorCode})` : ''}
+        </p>
+      ))}
+      {cleanup?.result?.generatedReferenceId && (
+        <div>
+          <p>
+            Review the reconstructed areas before using this image. Original room pixels outside your
+            selections are preserved.
+          </p>
+          <img
+            className="photo-cleanup-preview"
+            alt="Reviewed cleaned photograph preview"
+            src={`/api/projects/${projectId}/references/${cleanup.result.generatedReferenceId}`}
+          />
+          <Button
+            disabled={disabled || changed}
+            onClick={() => void save({ backgroundReferenceId: cleanup.result!.generatedReferenceId! })}
+          >
+            Use cleaned photograph
+          </Button>
+        </div>
+      )}
+      {workspace.backgroundReferenceId && (
+        <Button disabled={disabled} onClick={() => void save({ backgroundReferenceId: null })}>
+          Restore original background
+        </Button>
+      )}
+      <details>
+        <summary>Confirm an existing object's physical footprint</summary>
+        <p>
+          Keeping an object in the photo does not make it a collision obstacle. Measure its floor footprint
+          and position to add an obstacle to the shared scene. Remove its obstacle in Room essentials if the
+          real object is removed.
+        </p>
+        <div className="photo-fields">
+          {(['x', 'z', 'width', 'depth'] as const).map((key) => (
+            <Field key={key} label={`Obstacle ${key} (m)`}>
+              <input
+                aria-label={`Photo obstacle ${key} (m)`}
+                type="number"
+                step="0.01"
+                value={obstacle[key]}
+                onChange={(e) => setObstacle({ ...obstacle, [key]: Number(e.target.value) })}
+              />
+            </Field>
+          ))}
+        </div>
+        <Button
+          disabled={disabled || !scene}
+          onClick={() => {
+            if (scene)
+              void preview({
+                type: 'room',
+                room: {
+                  ...scene.room,
+                  zones: [...scene.room.zones, { ...obstacle, id: crypto.randomUUID(), kind: 'obstacle' }],
+                },
+              });
+          }}
+        >
+          Preview measured obstacle
+        </Button>
+      </details>
+    </div>
+  );
+}

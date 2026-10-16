@@ -5,10 +5,10 @@ The current delivery is a local, account-free customer trial. It preserves the e
 ## Included journey
 
 1. Start Docker Desktop with Linux containers and host networking enabled. Open `Start-RoomSell.cmd` on Windows, or run `docker compose up --build` from the repository root.
-2. Wait for READY, then open the local app on port 3000 at `/testing`. Enter as Alex, the retailer. No hosted keys, signup or email verification are required.
+2. Wait for READY, then open the local app on port 3000 at `/testing`. Click **Open photo placement demo** for calibrated photograph selling, or enter as Alex, the retailer. No hosted keys, signup or email verification are required.
 3. Inspect the seven products, dimensions, availability, private images and explicit SKU mappings. Change simulated upstream stock and synchronize.
 4. Open Maya's measured room. Move furniture, review Smart Rearrange previews, preserve locks, compare 2D/3D, accept, reload and undo/redo.
-5. Upload a private reference photograph. Request labelled local test advice, wait for the worker, review its validated intent and explicitly accept a proposed layout. No OpenAI call occurs in this mode.
+5. In **Client photograph**, upload and calibrate a photo, place actual inventory with immediate model dragging, rotate/remove and accept checked edits. The synthetic example has a known camera and seven dimensioned illustrative models. Review original-object scan selections and a cleaned background without changing the original. The labelled local photo adapter handles only the synthetic fixture. See [PHOTO_SELLING.md](PHOTO_SELLING.md). Existing Design assistance provides catalogue-grounded advice; live photo advice/removal needs OpenAI.
 6. Review configured VAT/delivery and issue an immutable quotation/PDF. Enter as Maya to review, reserve and confirm it.
 7. Return as Alex and record fulfilment. The fictional supplier returns a durable acknowledgement; retrying reuses its reference without selling stock twice. Later inventory sync preserves the reduction. Explicit supplier rejection leaves stock intact and permits cancellation; unknown outcomes are held for recovery.
 8. Optionally enter as Leo, build a private consumer design from published offers, compare 2D/3D and approve a selected-retailer enquiry.

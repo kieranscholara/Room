@@ -5,6 +5,7 @@ import { adminClient, databaseError } from './supabase-server';
 import { ServiceError, isServiceError } from './editor-service';
 import type { TenantJob } from './jobs-service';
 import { executeDesignJob } from './design-assistant-service';
+import { executePhotoJob } from './photo-jobs-service';
 import { testingEnabled, fixtureDirectory } from './local-testing';
 export async function assertWorkerAuthorization(header: string | null) {
   let secret = process.env.ROOMSELL_WORKER_TOKEN || process.env.CRON_SECRET;
@@ -99,9 +100,11 @@ export async function runWorkerBatch(maxJobs = 3) {
       retryable = false;
     try {
       if (job.kind === 'ai_design') result = await executeDesignJob(job);
+      else if (job.kind === 'photo_analysis' || job.kind === 'photo_cleanup')
+        result = await executePhotoJob(job);
       else if (job.kind === 'cleanup_storage') result = await cleanupStorage(job);
       else if (job.kind === 'cleanup_orphans') result = await cleanupOrphans(job);
-      else {
+      else if (job.kind === 'inventory_sync') {
         const { syncInventoryForActor } = await import('./inventory-service');
         result = await syncInventoryForActor(
           job.organisation_id,
@@ -109,7 +112,7 @@ export async function runWorkerBatch(maxJobs = 3) {
           { expectedRevision: job.payload.expectedRevision },
           job.actor_id,
         );
-      }
+      } else throw new ServiceError(400, 'Unsupported job kind.');
     } catch (error) {
       const status = isServiceError(error) ? error.status : 500;
       errorCode =

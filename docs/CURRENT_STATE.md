@@ -1,5 +1,13 @@
 # Current state: evidence-based audit
 
+## Photo-first selling increment — 16 October 2026
+
+Added a **Client photograph** editor view: private upload, four-point measured floor calibration, original-size product-model overlay, immediate checked dragging, catalogue drop/click placement, rotation/removal, shared 2D/3D previews and revisioned saved photo setup. Migration 019 adds project-scoped photo state and analysis/cleanup job kinds. The original 2D editor, scene v2 and commercial SKU/lock admission remain in use.
+
+Original furniture can be manually selected or suggested by OpenAI structured vision. Selected-area removal runs in the existing worker and requires review before changing the displayed background. Original bytes and pixels outside selections are preserved. Approximate rectangles are never trusted physical measurements; retained objects need measured obstacle footprints for collision checks. The local adapter only processes the registered synthetic example and is clearly labelled.
+
+Boreal Living now has seven illustrative dimensioned GLBs and a reproducible, pre-calibrated synthetic room with a known empty reference. `/testing` includes **Open photo placement demo**. The separate generated photorealistic room has no invented calibration. The seeder adds missing fixture assets/state without resetting projects, stock or identities. [PHOTO_SELLING.md](PHOTO_SELLING.md) documents exact usage and limitations. Live OpenAI and physical client-room acceptance remain unverified without keys/measurements.
+
 ## MVP completion increment — 16 October 2026
 
 The local fictional-customer MVP now includes the portable Docker build (no build-time host entitlement), Windows entry file, password recovery/reset via a dedicated PKCE callback, optional custom REST supplier acknowledgement and rejection recovery, authenticated aggregate operational monitoring, and read-only hosted configuration/staging checks. Forward migrations 017–018 add frozen supplier requests and immutable terminal receipts. No real connector is opted into outbound writes automatically. A targeted properties-form fix prevents delayed state synchronization from overwriting a newly entered coordinate after discarding a preview; the canonical scene and geometry engine are unchanged.

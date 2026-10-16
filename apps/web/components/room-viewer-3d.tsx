@@ -87,7 +87,7 @@ function boundedResolutions(
   return resolutions;
 }
 
-function useProjectModels(
+export function useProjectModels(
   projectId: string | undefined,
   scene: Scene,
   refresh: number,
@@ -355,7 +355,7 @@ function ObjectOutline({
     </lineSegments>
   );
 }
-function Furniture3D({
+export function Furniture3D({
   object,
   model,
   selected,
@@ -428,7 +428,10 @@ function WebGLFallback({ onUnavailable }: { onUnavailable?: () => void }) {
     </div>
   );
 }
-class ViewerBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+export class ViewerBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };

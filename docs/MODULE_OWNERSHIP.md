@@ -1,5 +1,15 @@
 # Module ownership and dependency boundaries
 
+## Photo workflow modules
+
+| Module                                                    | Responsibility                                                         | Boundary                                                               |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `packages/geometry/src/photo-calibration.ts`              | Pure camera recovery and image/world/drag-plane projection             | No React, database or product mutation                                 |
+| `apps/web/components/photo-studio.tsx`, `photo-tools.tsx` | Calibrated rendering, immediate interaction and reviewed photo actions | Reuses canonical preview/accept, model loader and locks                |
+| `apps/web/lib/photo-contract.ts`, `photo-service.ts`      | Strict photo state, private source normalization and CAS               | Current project edit/read permissions                                  |
+| `apps/web/lib/photo-jobs-service.ts`, `photo-provider.ts` | Bounded vision/removal, private outputs and provider transport         | No scene/price/SKU authority; explicit consent and shared job controls |
+| `scripts/build-photo-fixtures.mjs`                        | Reproducible synthetic camera/model fixtures                           | Fictional illustrative assets only                                     |
+
 The 16 October MVP increment adds `packages/inventory/src/fulfilment.ts` for provider-neutral request/receipt validation, the existing server transport for DNS-pinned HTTPS POST, and `order-service.ts` plus migrations 017–018 for durable supplier admission/completion. `local-testing.ts` owns only the labelled local supplier substitute. `auth-callback.ts` and password routes own the Supabase recovery boundary. `/api/internal/operations` and the deployment/staging scripts own sanitized operational checks. None of these modules may bypass canonical geometry, tenant checks or immutable commercial records.
 
 ## New concrete capability owners

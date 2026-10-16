@@ -1,5 +1,11 @@
 # RoomSell architecture alignment audit
 
+## Calibrated photograph selling — current increment
+
+The approved photo-first workflow adds `photo-studio.tsx` as another adapter over the existing scene/store. `geometry/photo-calibration.ts` recovers a metric pinhole camera from four confirmed floor correspondences; the same `Furniture3D`/safe model loader renders original-size catalogue meshes over the private photograph. Local dragging uses the grabbed point's horizontal plane, pure checked proposals and the ordinary server preview/accept path. It never creates a second scene authority or calls AI on pointer movement.
+
+`photo-service.ts` and migration 019 persist separately revisioned calibration, reviewed image regions and the chosen background. `photo-jobs-service.ts` uses the existing durable queue for schema-validated vision and selected-area image edits through `photo-provider.ts`. Only a completed cleanup of the exact source revision can be applied; only reviewed pixels are composited, and the original reference remains unchanged. All reads remain project-scoped. Existing AI hourly quotas include these jobs. No dependencies were added. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for the workflow, limitations and live-provider acceptance boundary.
+
 ## Six-area application implementation — current
 
 The existing modular monolith, 2D editor and scene v2 are preserved. No dependencies were added in this increment. The earlier audit and steps 1–4 checkpoint below remain historical evidence.

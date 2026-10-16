@@ -41,6 +41,7 @@ export function ProjectAssistant({
     [provider, setProvider] = useState<'openai' | 'test'>('openai'),
     [brief, setBrief] = useState('Make the room feel open while keeping locked furniture in place.'),
     [usePhotos, setUsePhotos] = useState(false),
+    [selectedReferences, setSelectedReferences] = useState<string[]>([]),
     [references, setReferences] = useState<{ id: string; name: string }[]>([]),
     [job, setJob] = useState<Job | null>(null),
     [error, setError] = useState(''),
@@ -59,6 +60,7 @@ export function ProjectAssistant({
       setJob(jobs.find((item) => item.kind === 'ai_design') ?? null);
       setStatus(info);
       setReferences(photos);
+      setSelectedReferences((old) => old.filter((id) => photos.some((p) => p.id === id)));
       if (!info.openAiConfigured && info.testAdapterEnabled) setProvider('test');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Assistant status unavailable.');
@@ -92,7 +94,7 @@ export function ProjectAssistant({
   }, [job?.id, job?.status]);
   const result = job?.status === 'completed' ? job.result : null;
   return (
-    <section className="account-panel" aria-label="Design assistant">
+    <section id="project-design-assistant" className="account-panel" aria-label="Design assistant">
       <div>
         <h2>Design assistant</h2>
         <p className="account-muted">
@@ -121,8 +123,7 @@ export function ProjectAssistant({
                     brief,
                     expectedSceneVersion: current.version,
                     provider,
-                    referenceIds:
-                      provider === 'openai' && usePhotos ? references.slice(0, 2).map((item) => item.id) : [],
+                    referenceIds: provider === 'openai' && usePhotos ? selectedReferences : [],
                     idempotencyKey: crypto.randomUUID(),
                   },
                 }),
@@ -170,10 +171,34 @@ export function ProjectAssistant({
               type="checkbox"
               checked={usePhotos}
               disabled={provider !== 'openai' || !references.length}
-              onChange={(event) => setUsePhotos(event.target.checked)}
+              onChange={(event) => {
+                setUsePhotos(event.target.checked);
+                if (event.target.checked) void load();
+              }}
             />{' '}
-            Use the first two room photographs with OpenAI
+            I consent to sending the selected room photographs to OpenAI
           </label>
+          {usePhotos && provider === 'openai' && (
+            <fieldset>
+              <legend>Choose up to two photographs for inventory suggestions</legend>
+              {references.map((photo) => (
+                <label key={photo.id}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Use photograph ${photo.name}`}
+                    checked={selectedReferences.includes(photo.id)}
+                    disabled={!selectedReferences.includes(photo.id) && selectedReferences.length >= 2}
+                    onChange={(e) =>
+                      setSelectedReferences((old) =>
+                        e.target.checked ? [...old, photo.id] : old.filter((id) => id !== photo.id),
+                      )
+                    }
+                  />
+                  {photo.name}
+                </label>
+              ))}
+            </fieldset>
+          )}
           <p className="account-muted">
             If selected, these private references are sent to OpenAI for visual guidance. Stored measurements
             stay authoritative.
@@ -187,7 +212,8 @@ export function ProjectAssistant({
               !!proposal ||
               submitting ||
               ['queued', 'running'].includes(job?.status ?? '') ||
-              (!status?.openAiConfigured && provider === 'openai')
+              (!status?.openAiConfigured && provider === 'openai') ||
+              (provider === 'openai' && usePhotos && !selectedReferences.length)
             }
           >
             Request design assistance

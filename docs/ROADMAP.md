@@ -2,6 +2,10 @@
 
 Status: 16 October 2026. The user approved implementation after the architecture audit and completion of the fictional-customer MVP. Steps 1–4 below have been implemented in the existing application; verification is recorded in VALIDATION.md. The original 2D editor and scene v2 remain the foundation. The latest increment closes Docker build portability, password recovery, supplier acknowledgement/rejection and operational-check gaps; see MVP_STATUS.md.
 
+## Photo-first selling MVP
+
+Implemented in the existing app: metric camera calibration, catalogue model compositing and immediate drag placement over a still image, shared scene edits, reviewed original-object selections/removal, guarded provider jobs and a known-camera fictional demo. See [PHOTO_SELLING.md](PHOTO_SELLING.md). The next acceptance gate is a real measured room with approved product models and live OpenAI. Automatic depth/silhouette segmentation, lens correction and video/AR remain separate future scope; no editor rewrite is proposed.
+
 ## Actual foundation
 
 Implemented: strict metre-based scene v2/v1 migration; pure rotated geometry and bounded deterministic layout; object/group locks, openings, marked circulation, preview/accept/history; Next.js/React Konva workspace; real Supabase accounts, tenant RLS and checked scene commits; products/variants, bounded atomic CSV import, validated private product assets; customer contacts, measured projects, live catalogue subtotals and restricted customer sharing.

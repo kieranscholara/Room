@@ -1,0 +1,14 @@
+{
+  "summary": "Recorded synthetic fixture selection: one existing chest. This is not live AI analysis.",
+  "objects": [
+    {
+      "label": "Synthetic existing chest",
+      "bounds": {
+        "x": 0.2902483232694272,
+        "y": 0.40859335489298604,
+        "width": 0.10959102871837256,
+        "height": 0.14230180929330566
+      }
+    }
+  ]
+}

@@ -1,0 +1,194 @@
+.photo-studio {
+  padding: 16px;
+  background: #fbfaf7;
+  color: #26372d;
+  min-width: 0;
+}
+.photo-intro p,
+.photo-calibration p,
+.photo-scale,
+.photo-inventory p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #607267;
+}
+.photo-top-tools,
+.photo-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.photo-top-tools input[type='file'] {
+  max-width: 180px;
+  font-size: 10px;
+}
+.photo-top-tools select {
+  max-width: 240px;
+}
+.photo-stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: #ddd;
+  touch-action: none;
+}
+.photo-stage > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+.photo-model-layer,
+.photo-marker-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.photo-marker-layer {
+  pointer-events: none;
+}
+.photo-marker-layer circle {
+  fill: #ebad36;
+  stroke: #fff;
+  stroke-width: 3;
+}
+.photo-marker-layer text {
+  fill: #fff;
+  font: bold 24px sans-serif;
+  stroke: #222;
+  stroke-width: 0.5px;
+}
+.photo-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.photo-calibration,
+.photo-inventory,
+.photo-tools {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #dde5dc;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.photo-calibration .button {
+  margin: 8px 6px 0 0;
+}
+.photo-products {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.photo-products article {
+  border: 1px solid #dbe4d9;
+  padding: 10px;
+  display: flex;
+  gap: 6px;
+  flex-direction: column;
+  background: #f9fbf7;
+  border-radius: 6px;
+  cursor: grab;
+}
+.photo-products small {
+  font-size: 10px;
+}
+.photo-selection {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+.photo-selection button {
+  min-width: 150px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #ceddcc;
+  font-size: 10px;
+  border-radius: 6px;
+}
+.photo-selection button[aria-pressed='true'] {
+  border-color: #24564b;
+  background: #eaf3eb;
+}
+.photo-inventory form {
+  display: flex;
+  gap: 6px;
+}
+.photo-inventory input {
+  min-width: 0;
+  max-width: 60%;
+}
+.photo-studio input,
+.photo-studio select {
+  padding: 7px;
+  border: 1px solid #cddace;
+  border-radius: 4px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.photo-scale {
+  padding: 8px;
+  background: #edf4ec;
+}
+.photo-tools .photo-fields {
+  margin: 8px 0;
+}
+.photo-analysis-item {
+  padding: 8px;
+  border-top: 1px solid #eee;
+}
+.photo-tools .button {
+  margin: 4px;
+}
+@media (max-width: 800px) {
+  .photo-studio {
+    padding: 8px;
+  }
+  .photo-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .photo-top-tools .button {
+    font-size: 10px;
+  }
+  .photo-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.photo-cleanup-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+}
+.photo-foreground {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.photo-region-label {
+  position: absolute;
+  pointer-events: none;
+  border: 1px dashed #e9aa38;
+  color: white;
+  font: 11px sans-serif;
+  text-shadow: 0 1px 2px #000;
+  background: #df9e1420;
+}
+.photo-tools p,
+.photo-tools label {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.photo-proxy-note {
+  font-size: 12px;
+  background: #fff4db;
+  padding: 8px;
+}

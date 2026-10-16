@@ -1,5 +1,11 @@
 # Canonical scene contract
 
+## Calibrated photo presentation
+
+`photo_workspaces` (migration 019) stores image dimensions, source-reference identity, version-1 floor calibration, approximate reviewed regions and an optional approved background. Its independent revision uses compare-and-swap; these fields are not scene v2 geometry. Calibration requires the current confirmed room width/depth and natural oriented image size. A changed room size invalidates presentation until recalibration.
+
+Four clockwise metric floor correspondences determine the pinhole camera. X/Z/Y/yaw and original model bounds are unchanged. Dragging inverse-projects the pointer at the grabbed mesh point's fixed horizontal height and proposes an ordinary manual transform. Collision, SKU/currency, lock/group and scene revision admission stay authoritative on the server. Photo pixels do not establish obstacles, products or quotation lines. A manually measured existing object uses the existing room obstacle contract.
+
 ## Consumer ownership extension
 
 Scene schema remains v2 with the same metres, axes, dimensions, operations and independent locks. Retailer scenes still use the organisation UUID. Separately stored consumer scenes use `organisationId = consumer:<owner UUID>`; this namespace is immutable in the checked consumer commit. Do not send a consumer scene to retailer commit RPCs.

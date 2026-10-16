@@ -161,6 +161,25 @@ async function repairFixture(profile) {
         assets = [{ id: asset.id }];
       }
     }
+    const models = data(
+      await admin
+        .from('product_assets')
+        .select('id')
+        .eq('product_id', product.id)
+        .eq('organisation_id', profile.organisationId)
+        .eq('kind', 'model')
+        .eq('status', 'validated'),
+    );
+    if (!models.length) {
+      const modelPath = path.join(root, 'fixtures/boreal-living/models', product.sku + '.glb');
+      const bytes = await readFile(modelPath);
+      const form = new FormData();
+      form.set('file', new File([bytes], product.sku + '.glb', { type: 'model/gltf-binary' }));
+      await request('/api/organisations/' + profile.organisationId + '/catalogue/' + product.id + '/assets', {
+        method: 'POST',
+        body: form,
+      });
+    }
     for (const variantId of product.variantIds) {
       const publication = await admin
         .from('published_offers')
@@ -181,13 +200,43 @@ async function repairFixture(profile) {
     }
   }
   const references = data(
-    await admin.from('room_references').select('id').eq('project_id', profile.projectId),
+    await admin.from('room_references').select('id,name').eq('project_id', profile.projectId),
   );
   if (!references.length) {
     const bytes = await readFile(path.join(root, 'fixtures/boreal-living/images/room.png'));
     const form = new FormData();
     form.set('file', new File([bytes], 'Boreal Living fictional bedroom.png', { type: 'image/png' }));
     await request('/api/projects/' + profile.projectId + '/references', { method: 'POST', body: form });
+  }
+  const demoName = 'Boreal Living — synthetic measurement demonstration.png';
+  let demo = references.find((item) => item.name === demoName);
+  if (!demo) {
+    const bytes = await readFile(path.join(root, 'fixtures/boreal-living/photo-demo/room.png'));
+    const form = new FormData();
+    form.set('file', new File([bytes], demoName, { type: 'image/png' }));
+    demo = await request('/api/projects/' + profile.projectId + '/references', {
+      method: 'POST',
+      body: form,
+    });
+  }
+  const photoPath = '/api/projects/' + profile.projectId + '/photos/' + demo.id;
+  const photo = await request(photoPath);
+  const savedScene = data(
+    await admin.from('scenes').select('data').eq('project_id', profile.projectId).single(),
+  ).data;
+  if (
+    photo.revision === 0 &&
+    savedScene.room.width === 6 &&
+    savedScene.room.depth === 5 &&
+    savedScene.room.measurementsConfirmed
+  ) {
+    const calibration = JSON.parse(
+      await readFile(path.join(root, 'fixtures/boreal-living/photo-demo/calibration.json'), 'utf8'),
+    );
+    await request(photoPath, {
+      method: 'PUT',
+      body: JSON.stringify({ expectedRevision: 0, calibration, regions: [], backgroundReferenceId: null }),
+    });
   }
   if (!profile.consumerProjectId) {
     await request('/api/auth/login', {
@@ -630,6 +679,7 @@ try {
   const temporary = profilePath + '.' + randomUUID();
   await writeFile(temporary, JSON.stringify(profile), { mode: 0o600 });
   await rename(temporary, profilePath);
+  await repairFixture(profile);
   console.log(
     'Fictional Boreal Living retailer, personas, measured project and simulated inventory prepared. Open /testing. No real retailer data was changed.',
   );

@@ -1,6 +1,6 @@
 # RoomSell AI
 
-RoomSell has synchronized 2D/3D room views, Supabase accounts and organisation permissions, a retailer catalogue connected to customer projects, configured pricing, immutable quotations/PDFs, private room photographs, checked design assistance, durable jobs/orders, a published-offer consumer marketplace and a custom REST inventory connector. Real projects start empty and use products entered or imported by their retailer. `/demo` provides a separate synthetic bedroom fixture when explicitly enabled with `ROOMSELL_ENABLE_DEMO=1`.
+RoomSell has a calibrated client-photograph view and synchronized 2D/3D room views, Supabase accounts and organisation permissions, a retailer catalogue connected to customer projects, configured pricing, immutable quotations/PDFs, private room photographs, checked design assistance, durable jobs/orders, a published-offer consumer marketplace and a custom REST inventory connector. Real projects start empty and use products entered or imported by their retailer. `/demo` provides a separate synthetic bedroom fixture when explicitly enabled with `ROOMSELL_ENABLE_DEMO=1`.
 
 ## Run locally
 
@@ -27,11 +27,11 @@ docker compose up --build
 
 On Windows you can also double-click `Start-RoomSell.cmd`. Builds use ordinary networking; host networking is needed only by the running local app.
 
-Wait for **READY**, then open `/testing` in the local application on port 3000. Click **Enter as retailer** or **Enter as customer**. No signup, password entry, email verification, Vercel account or hosted Supabase key is required. Node/npm are included in the image. The first build/service downloads may take several minutes; later launches reuse them.
+Wait for **READY**, then open `/testing` in the local application on port 3000. Click **Open photo placement demo** for the calibrated synthetic room, or **Enter as retailer** / **Enter as customer** for the full workspace. No signup, password entry, email verification, Vercel account or hosted Supabase key is required. Node/npm are included in the image. The first build/service downloads may take several minutes; later launches reuse them.
 
 The local-only launcher uses your Docker engine socket to start the official Supabase services. It retains fictional accounts, stock, scenes and the connector encryption key in Docker volumes. Keep this setup local; it is not a hosted deployment configuration. See [the Docker walkthrough](docs/DOCKER_TRIAL.md).
 
-If you prefer Node.js 24 on your computer with Docker only for Supabase, `npm run try:customer` is also available. Generated images and inventory are explicitly fictional. The labelled local AI adapter needs no API key and is not OpenAI; live OpenAI is optional. See [the customer walkthrough](docs/TEST_CUSTOMER.md).
+If you prefer Node.js 24 on your computer with Docker only for Supabase, `npm run try:customer` is also available. Generated images and inventory are explicitly fictional. The labelled local AI adapter needs no API key and is not OpenAI; live OpenAI is optional. See [the customer walkthrough](docs/TEST_CUSTOMER.md) and [photo selling guide](docs/PHOTO_SELLING.md).
 
 ## Use the application
 

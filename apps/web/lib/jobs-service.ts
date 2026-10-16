@@ -10,7 +10,13 @@ export interface TenantJob {
   organisation_id: string;
   project_id: string | null;
   actor_id: string;
-  kind: 'ai_design' | 'inventory_sync' | 'cleanup_storage' | 'cleanup_orphans';
+  kind:
+    | 'ai_design'
+    | 'inventory_sync'
+    | 'cleanup_storage'
+    | 'cleanup_orphans'
+    | 'photo_analysis'
+    | 'photo_cleanup';
   payload: Record<string, unknown>;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   attempts: number;

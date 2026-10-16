@@ -51,3 +51,13 @@ ADR-001–003 were accepted by the user’s implementation approval on 14 Octobe
 **Alternatives:** Making organisationId optional, exposing all catalogues or treating a guessed SKU as a public reference breaks existing security invariants. Forcing every consumer into a fake retailer organisation hides ownership rather than defining it.
 
 **Acceptance:** Ownership/publication/revocation threat model, consumer and retailer read/write matrices, stable references, pricing provenance and staged schema/migration tests before any public feature. No marketplace schema or publication access-policy change is included in steps 1–4.
+
+## D-PHOTO — approved still-photograph selling view (16 October 2026)
+
+**Context:** The owner clarified that the main consultation is a salesperson placing actual inventory into a client's photograph, with immediate movement and authoritative product dimensions. They confirmed a still image and manual measurements/floor marking. The previous reference-only photo domain did not satisfy this workflow.
+
+**Decision:** Retain scene v2 and the existing editor; add a calibrated transparent Three.js furniture renderer over a private image. Recover a pinhole camera from four measured floor corners. Reuse the safe original-size catalogue model loader, pure geometry and ordinary preview/accept operations for every committed edit. Save calibration/regions/background in a separate revisioned photo workspace. No new dependencies or second scene engine.
+
+**AI boundary:** Structured vision proposes approximate image selections; existing catalogue-grounded design assistance handles recommendations for explicitly chosen consented photos. Masked removal runs in the durable worker, preserves the original and composites only reviewed pixels. Exact source revision, tenant access, quota and leased completion govern application. A registered synthetic known-camera image and illustrative GLBs provide an honest local demo without a key.
+
+**Tradeoffs:** Camera assumptions, manual marking and measurement error limit visual accuracy; no automatic depth/room measurement is claimed. Retained furniture needs measured obstacle footprints. Rectangular foreground regions are manual aids, not segmentation. AI removal is asynchronous; dragging is local. Manufacturer models, a physically measured client room and live OpenAI quality/latency remain acceptance requirements. Video/AR and automatic reconstruction are separate proposals.

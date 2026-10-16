@@ -38,6 +38,10 @@ const RoomViewer3D = dynamic(() => import('./room-viewer-3d'), {
   ssr: false,
   loading: () => <div className="canvas-loading">Preparing measured 3D room…</div>,
 });
+const PhotoStudio = dynamic(() => import('./photo-studio'), {
+  ssr: false,
+  loading: () => <div className="canvas-loading">Preparing client photograph…</div>,
+});
 function Properties({ object, demo, readOnly }: { object: SceneObject; demo: boolean; readOnly: boolean }) {
   const { scene, proposal, busy, mode, preview } = useEditor();
   // Reset immediately when the displayed source changes. An effect can run after
@@ -286,6 +290,10 @@ export function Editor({
   } = useEditor();
   const [savedMessage, setSavedMessage] = useState('');
   const [view, setView] = useState<SceneView>('2d');
+  useEffect(() => {
+    if (projectId && !personal && new URLSearchParams(window.location.search).get('view') === 'photo')
+      setView('photo');
+  }, [projectId, personal]);
   const [comparing, setComparing] = useState<Scene | null>(null);
   useEffect(() => {
     setComparing(null);
@@ -451,12 +459,18 @@ export function Editor({
           </aside>
           <section className="canvas-panel panel" aria-label="Room editor">
             <div className="canvas-toolbar">
-              <SceneViewControls view={view} onChange={setView} />
+              <SceneViewControls
+                view={view}
+                onChange={setView}
+                photoEnabled={Boolean(projectId && !personal)}
+              />
               <span className="toolbar-divider" />
               <span className="toolbar-hint">
                 {view === '2d'
                   ? 'Drag to explore · preview before saving'
-                  : 'Orbit to inspect · edit with the placement controls'}
+                  : view === 'photo'
+                    ? 'Calibrate the photo · drag inventory into the room'
+                    : 'Orbit to inspect · edit with the placement controls'}
               </span>
               <div className="history-controls">
                 <Button
@@ -484,6 +498,8 @@ export function Editor({
                 {error || 'Loading your measured room…'}
                 {error && <Button onClick={() => void load()}>Retry</Button>}
               </div>
+            ) : view === 'photo' && projectId ? (
+              <PhotoStudio key={projectId} projectId={projectId} readOnly={readOnly} />
             ) : view === '3d' ? (
               <RoomViewer3D
                 sceneEndpoint={endpoint}

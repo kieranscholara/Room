@@ -202,3 +202,4 @@ export function snapToWalls(object: SceneObject, room: Room, threshold = 0.15): 
   if (Math.abs(zDeltas[0]) <= threshold) transform.z += zDeltas[0];
   return transform;
 }
+export * from './photo-calibration';

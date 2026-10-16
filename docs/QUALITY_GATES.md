@@ -42,3 +42,12 @@ These gates distinguish tests present now from requirements for future capabilit
 8. Keep hosted staging/restore/physical-retailer acceptance as separate release gates. A local CI pass cannot certify them.
 
 Every independently testable PR should include its relevant characterisation/regression tests and existing acceptance checks. Broad release gates remain required before enabling a capability publicly. Do not disable assertions or weaken tenant/lock tests to accommodate a refactor.
+
+## Calibrated photograph gate
+
+- Pure camera fixtures recover metric vertical/floor projections and grabbed-point drag planes. Pointer inversion must use the recovered metric camera even when manual marks are noisy. Reject crossed/degenerate/inconsistent floor marks and non-finite input; never rescale a SKU mesh.
+- Load every fictional GLB through both upload validation and the actual Three decoder; its rendered bounds must match the explicit catalogue dimensions.
+- Validate AI selection schemas, refusal of invented measurements/overflow areas, bounded provider responses, masked edit requests and original-pixel preservation outside all reviewed regions. Unit tests use stub transports, never a real key.
+- Database tests cover photo CAS, project/tenant identity, direct-write denial, confirmed dimensions, completed-source-revision cleanup admission, deletion, revocation and shared AI quota.
+- Production browser tests cover upload/manual calibration, immediate model drag and exact catalogue association, rotation/removal, persistence and shared 2D/3D scene, locks/collision rejection, reviewed synthetic scan/removal, original restoration, stale edits and foreign access denial.
+- Real-provider quality and physical fit require separate measured-room/provider acceptance; a synthetic camera fixture does not establish real-photo accuracy. All of these tests run through the existing CI commands without another dependency.

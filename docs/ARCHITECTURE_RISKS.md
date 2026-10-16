@@ -1,5 +1,16 @@
 # Architecture risk register
 
+## Photo workflow risks — current
+
+| Risk                                           | Control                                                                                                  | Remaining acceptance                                                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Wrong apparent scale from a single photograph  | Confirmed metric rectangle, convex/order checks, camera-height and reprojection bounds; no model scaling | Physical measured-room comparison; panoramas/lens distortion/incorrect marks can invalidate visual alignment |
+| Existing furniture ignored in fit calculations | Explicit measured obstacle workflow; detections have no metric authority                                 | Salesperson must confirm retained footprints                                                                 |
+| AI alters room architecture or wrong object    | Reviewed masks, original retained, only selected pixels composited; exact revision application           | Image quality and human review; rectangles can include unwanted background                                   |
+| Incorrect product appearance                   | Authorised original-size models and labelled box fallback; fictional models explicitly illustrative      | Manufacturer-supplied models/photos for production SKUs                                                      |
+| Foreground occlusion/depth errors              | Optional explicit rectangular foreground area; no automatic depth claim                                  | Silhouette segmentation/depth reconstruction is future work                                                  |
+| Provider delay or spend                        | Existing queue/lease/dedupe/revocation, shared hourly AI quota, bounded requests                         | Live model access/billing and performance under actual customer photos                                       |
+
 ## Current residual risks after the six-area increment
 
 The historical risk register below is preserved; its missing-feature statements are superseded by this section and CURRENT_STATE.md.

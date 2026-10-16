@@ -1,19 +1,26 @@
 'use client';
-import { Box, Grid2X2 } from 'lucide-react';
+import { Box, Grid2X2, Image } from 'lucide-react';
 import './room-viewer-3d.css';
 
-export type SceneView = '2d' | '3d';
+export type SceneView = '2d' | '3d' | 'photo';
 
 /** Display preference only: changing views never changes the saved scene. */
 export function SceneViewControls({
   view,
   onChange,
+  photoEnabled = false,
 }: {
   view: SceneView;
   onChange: (view: SceneView) => void;
+  photoEnabled?: boolean;
 }) {
   return (
     <div className="scene-view-controls" role="group" aria-label="Scene view">
+      {photoEnabled && (
+        <button type="button" aria-pressed={view === 'photo'} onClick={() => onChange('photo')}>
+          <Image size={15} /> Client photograph
+        </button>
+      )}
       <button type="button" aria-pressed={view === '2d'} onClick={() => onChange('2d')}>
         <Grid2X2 size={15} /> 2D floor plan
       </button>

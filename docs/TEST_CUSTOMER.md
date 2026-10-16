@@ -1,5 +1,7 @@
 # Boreal Living fictional customer
 
+For the main photograph-selling workflow, start with **Open photo placement demo** on `/testing`. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for upload, calibration, immediate SKU placement, original-object removal and live OpenAI setup.
+
 Boreal Living is an authorised synthetic retailer, not a real company. Its catalogue, SKUs, contacts and inventory are deliberately fictional. Generated studio product photographs and a staged bedroom reference are illustrative and are not proof of product dimensions or fit. Measured dimensions in the catalogue/scene remain authoritative.
 
 ## Start the scenario
