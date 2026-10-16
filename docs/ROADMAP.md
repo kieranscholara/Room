@@ -1,14 +1,16 @@
 # Architecture-aligned roadmap
 
-Status: 16 October 2026. The user approved implementation after the architecture audit and completion of the fictional-customer MVP. Steps 1–4 below have been implemented in the existing application; verification is recorded in VALIDATION.md. The original 2D editor and scene v2 remain the foundation. The latest increment closes Docker build portability, password recovery, supplier acknowledgement/rejection and operational-check gaps; see MVP_STATUS.md.
+Status: 16 October 2026. The user confirmed a salesperson-operated photo consultation with a short measured calibration. The visible 2D section is removed; retailer projects are photo-only and legacy demo/personal rooms use 3D. Scene v2, geometry, locks, tenant isolation and checked saving remain the foundation. Earlier delivery milestones below are retained as implementation history; current results belong in VALIDATION.md.
 
 ## Photo-first selling MVP
 
-Implemented in the existing app: metric camera calibration, catalogue model compositing and immediate drag placement over a still image, shared scene edits, reviewed original-object selections/removal, guarded provider jobs and a known-camera fictional demo. See [PHOTO_SELLING.md](PHOTO_SELLING.md). The next acceptance gate is a real measured room with approved product models and live OpenAI. Automatic depth/silhouette segmentation, lens correction and video/AR remain separate future scope; no editor rewrite is proposed.
+Implemented in the existing app: photo upload; reviewed visible-object scan; confirmed room measurements/floor calibration; catalogue additions and reviewed catalogue/photo removals in **Complete the room**; actual SKU click/drop placement, immediate dragging/rotation and checked acceptance; local client design confirmation before quotation. Original-image cleanup remains a separately reviewed background edit. No dependencies or migrations are added for this consultation increment. See [PHOTO_SELLING.md](PHOTO_SELLING.md).
+
+The next MVP gates are: run the current automated acceptance suite; test a real measured room with approved product models and live OpenAI; validate the chosen retailer's catalogue, commercial policy and real inventory contract; complete managed hosting/SMTP/backups/alerts gates before public use. The local confirmation is deliberately a session checklist; durable customer approval/signature is a separate requirement. Automatic depth/silhouette segmentation, lens correction, video/AR and guaranteed whole-room recognition remain future scope.
 
 ## Actual foundation
 
-Implemented: strict metre-based scene v2/v1 migration; pure rotated geometry and bounded deterministic layout; object/group locks, openings, marked circulation, preview/accept/history; Next.js/React Konva workspace; real Supabase accounts, tenant RLS and checked scene commits; products/variants, bounded atomic CSV import, validated private product assets; customer contacts, measured projects, live catalogue subtotals and restricted customer sharing.
+Implemented: strict metre-based scene v2/v1 migration; pure rotated geometry and bounded deterministic layout; object/group locks, openings, marked circulation, preview/accept/history; Next.js photograph consultation; real Supabase accounts, tenant RLS and checked scene commits; products/variants, bounded atomic CSV import, validated private product assets; customer contacts, measured projects, live catalogue subtotals and restricted customer sharing. Legacy Konva code remains unmounted rather than requiring a risky domain rewrite.
 
 Added after approval: exclusive runtime/test targets, explicit demo gate, preview compatibility fingerprints, shared catalogue/render contracts and exact currency display; synchronized read-only 3D with validated models/proxies; configured exact pricing, immutable quotations/PDFs; encrypted custom REST inventory connectors with stable mappings, atomic reconciliation and freshness.
 

@@ -1,6 +1,18 @@
 # Current state: evidence-based audit
 
-## Photo-first selling increment — 16 October 2026
+## Salesperson photograph consultation — current, 16 October 2026
+
+The latest product direction supersedes the earlier requirement to retain a visible 2D editor. Retailer projects now open directly in the photograph workspace; `editor.tsx` no longer mounts the Konva floor plan or exposes a 2D section. Legacy demo/personal-room workspaces show 3D only. Scene v2, metric geometry, locks, tenant permissions, preview/accept and persistence remain the foundation; this is a presentation/workflow change with no new dependency or migration.
+
+`photo-consultation.tsx` and `project-editor.tsx` guide the salesperson and client through **Upload, scan and measure → Complete the room → Choose and position furniture → Confirm and quote**. AI scans visible objects into human-reviewed selections; it cannot guarantee all objects or infer authoritative dimensions. Confirmed room dimensions and the short four-point floor calibration remain required for placement.
+
+`assistant-contract.ts`, `design-assistant-service.ts` and `project-assistant.tsx` support catalogue additions, checked suggestions to remove chosen catalogue objects, and keep/remove advice restricted to known reviewed photo regions. The salesperson chooses an actual SKU and clicks its photo position. Scene removal and image cleanup remain separate explicit actions; no AI result is automatically accepted.
+
+**Products and budget** reviews saved choices and prices. **Confirm design for quotation** records a local, current-session client review tied to scene version, selected reference/photo revision and loaded product details. It resets after relevant changes, refresh or reload. It is not a persisted signature or server authorisation. New quotation preparation is gated in the consultation UI; issued history remains visible and the existing server source/version, permission, stock and exact-pricing checks stay authoritative.
+
+The existing inventory connector and fictional supplier are unchanged. No real vendor access or live-provider quality is established by this increment. Follow [PHOTO_SELLING.md](PHOTO_SELLING.md); executed validation belongs in [VALIDATION.md](VALIDATION.md).
+
+## Earlier photo-view increment — historical, 16 October 2026
 
 Added a **Client photograph** editor view: private upload, four-point measured floor calibration, original-size product-model overlay, immediate checked dragging, catalogue drop/click placement, rotation/removal, shared 2D/3D previews and revisioned saved photo setup. Migration 019 adds project-scoped photo state and analysis/cleanup job kinds. The original 2D editor, scene v2 and commercial SKU/lock admission remain in use.
 

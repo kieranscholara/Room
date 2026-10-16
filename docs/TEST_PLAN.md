@@ -17,6 +17,8 @@ npm audit
 
 The [validation record](VALIDATION.md) contains actual execution results. Test descriptions below describe coverage, not an unrecorded claim that a particular run passed.
 
+The current user flow is the salesperson-operated photo consultation with no visible 2D section. Verify upload/scan human correction, confirmed dimensions and floor calibration, catalogue/known-photo-region suggestions, explicit SKU placement and checked movement/removal, followed by local client confirmation before a new quote. Test confirmation invalidation on scene/photo/review changes and reload, while retaining access to issued history. Legacy demo/personal rooms use 3D; retained Konva projection tests are domain characterisation only. See [QUALITY_GATES.md](QUALITY_GATES.md) and [PHOTO_SELLING.md](PHOTO_SELLING.md).
+
 ## Unit, property and service tests
 
 `npm test` runs Vitest with reproducible fast-check seeds. Scene/geometry/layout tests cover strict schemas and v1 migration, coordinate precision/rotation, SAT symmetry, walls/ceiling/openings/circulation, rug rules, deterministic bounded rearrangement, independent locks, rigid groups, impossible moves, snapping/guides and manual placement.
@@ -45,4 +47,4 @@ Screenshots/traces on failure are written to ignored test-results/playwright-rep
 
 ## Later acceptance gates
 
-Still required: 2D/3D agreement and representative model rendering; AI intent/lock/geometry constraints; complete tax/discount/shipping budgets; immutable issued quotations/PDF revisions; approval/review links; signed/idempotent billing events; durable retries/tenant jobs; hosted email/cookies; backup/restore and retention/deletion; full accessibility/browser/device and physical retailer acceptance.
+Before live rollout, verify representative retailer models and a physically measured photograph, live provider quality/latency, hosted email/cookies, backups/restore and retention/deletion, accessibility/device performance and the actual inventory contract. Photo/canonical transform parity, bounded AI/lock/geometry checks, exact commercial budgets, immutable quotation revisions and durable jobs remain regression gates. Durable customer signatures/review links and billing events are separate future capabilities; the local client review is not legal acceptance.

@@ -2,6 +2,8 @@
 
 ## Photo workflow modules
 
+Retailer projects now use the photograph consultation exclusively. `editor.tsx` no longer mounts the legacy Konva floor plan; legacy demo/personal workspaces use 3D. The underlying scene/geometry/layout ownership is unchanged. Earlier keep-2D statements below are historical, not current presentation requirements.
+
 | Module                                                    | Responsibility                                                         | Boundary                                                               |
 | --------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `packages/geometry/src/photo-calibration.ts`              | Pure camera recovery and image/world/drag-plane projection             | No React, database or product mutation                                 |
@@ -9,6 +11,13 @@
 | `apps/web/lib/photo-contract.ts`, `photo-service.ts`      | Strict photo state, private source normalization and CAS               | Current project edit/read permissions                                  |
 | `apps/web/lib/photo-jobs-service.ts`, `photo-provider.ts` | Bounded vision/removal, private outputs and provider transport         | No scene/price/SKU authority; explicit consent and shared job controls |
 | `scripts/build-photo-fixtures.mjs`                        | Reproducible synthetic camera/model fixtures                           | Fictional illustrative assets only                                     |
+
+| Consultation module                                                                            | Responsibility                                                                                     | Boundary                                                                                                        |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `apps/web/components/photo-consultation.tsx`                                                   | Guided salesperson/client steps, saved product summary and current-session design review           | Local UI checklist only; cannot authorise or persist quotation approval/signatures                              |
+| `apps/web/lib/photo-consultation-status.ts`, `components/project-editor.tsx`                   | Current reference/revision/readiness, chosen-variant placement request and component wiring        | No alternate scene state or authority; catalogue choice still needs a photo position and checked preview        |
+| `components/project-assistant.tsx`, `lib/assistant-contract.ts`, `design-assistant-service.ts` | Catalogue additions, checked chosen-object removals and known-region photo keep/remove advice      | No invented SKU/region/measurement; human review for scene previews and photo choices; cleanup remains separate |
+| `components/project-quotations.tsx`                                                            | Gates new quotation preparation on local consultation confirmation while preserving issued history | Existing server source/price/stock/permission checks and immutable snapshots stay authoritative                 |
 
 The 16 October MVP increment adds `packages/inventory/src/fulfilment.ts` for provider-neutral request/receipt validation, the existing server transport for DNS-pinned HTTPS POST, and `order-service.ts` plus migrations 017–018 for durable supplier admission/completion. `local-testing.ts` owns only the labelled local supplier substitute. `auth-callback.ts` and password routes own the Supabase recovery boundary. `/api/internal/operations` and the deployment/staging scripts own sanitized operational checks. None of these modules may bypass canonical geometry, tenant checks or immutable commercial records.
 

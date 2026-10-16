@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { calibratePhotoInBrowser, clickPhotoFloor, confirmPhotoDesign } from './photo-helpers';
+
+test.use({
+  launchOptions: {
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  },
+});
+test.setTimeout(180_000);
 
 test('retailer reviews exact pricing, issues an immutable quotation and downloads its PDF', async ({
   page,
@@ -70,10 +79,12 @@ test('retailer reviews exact pricing, issues an immutable quotation and download
   await page.getByRole('button', { name: 'Save pricing rules', exact: true }).click();
   await expect(page.getByText('Pricing rules saved · revision 1', { exact: true })).toBeVisible();
   await page.goto(`/projects/${project.id}`);
-  await page.getByLabel('Furniture variant', { exact: true }).selectOption(product.variants[0].id);
-  await page.getByRole('button', { name: 'Preview catalogue placement', exact: true }).click();
+  const { calibration } = await calibratePhotoInBrowser(page, project.id);
+  await page.getByRole('button', { name: 'Place Quoted measured bed', exact: true }).click();
+  await clickPhotoFloor(page, { x: 3, y: 0, z: 2.5 }, calibration);
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Layout preview', exact: true })).not.toBeVisible();
+  await confirmPhotoDesign(page);
   await page.getByRole('button', { name: 'Review quotation', exact: true }).click();
   const preview = page.getByRole('region', { name: 'Quotation preview', exact: true });
   await expect(preview).toContainText('€114.00');

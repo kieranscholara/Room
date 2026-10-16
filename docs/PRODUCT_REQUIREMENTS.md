@@ -1,5 +1,7 @@
 # MASTER BUILD PROMPT — ROOMSELL AI
 
+> Historical source prompt. On 16 October 2026 the owner replaced the visible 2D workflow with a salesperson-operated photograph consultation: upload, scan/review visible objects, enter measured room dimensions, perform short floor calibration, choose actual retailer inventory, position it in the image, confirm with the client and quote. Earlier 2D requirements below are retained as source history and are superseded for current UI scope. The current behaviour and limits are documented in [PHOTO_SELLING.md](PHOTO_SELLING.md), [CURRENT_STATE.md](CURRENT_STATE.md) and [MVP_STATUS.md](MVP_STATUS.md). Metric scene validation, locks and tenant authority remain required. This original prompt is not a claim that every listed feature is implemented.
+
 You are acting as a senior software architect, full-stack engineer, 3D graphics engineer, AI engineer, UI/UX designer, QA engineer and technical lead.
 
 Your task is to design and develop **RoomSell AI**, a production-oriented multi-tenant SaaS platform for furniture retailers, interior designers and furniture showrooms.

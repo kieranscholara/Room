@@ -1,6 +1,6 @@
 # Account-free fictional customer trial in Docker
 
-This is a local test environment for Boreal Living, a fictional furniture retailer, its customer Maya and simulated inventory. It needs no Vercel deployment, hosted Supabase keys, signup or email confirmation. Node/npm are included in the Docker image. Existing 2D editing, locks and authoritative scene validation are preserved.
+This is a local test environment for Boreal Living, a fictional furniture retailer, its customer Maya and simulated inventory. It needs no Vercel deployment, hosted Supabase keys, signup or email confirmation. Node/npm are included in the Docker image. The salesperson works with the client in the photograph workspace; the visible 2D section is removed while metric geometry, locks and authoritative scene validation remain.
 
 ## Start
 
@@ -8,7 +8,7 @@ This is a local test environment for Boreal Living, a fictional furniture retail
 2. Download/extract or check out the `roomsell/bedroom-editor-milestone` branch of `kieranscholara/Room`. Open a terminal in the folder containing `compose.yaml`.
 3. Run `docker compose up --build`.
 4. Wait for the log line beginning **READY**. The first image build and official service-image downloads can take several minutes. Keep at least 3 GiB free after downloads; leave additional space for images and data.
-5. Open the local app on port 3000 and go to `/testing`. Choose **Enter as retailer** or **Enter as customer**. The third persona is the optional marketplace consumer.
+5. Open the local app on port 3000 and go to `/testing`. Choose **Open photo placement demo** for the calibrated synthetic room, or **Enter as retailer** / **Enter as customer**. The third persona is the optional marketplace consumer.
 
 The command installs the locked dependencies, starts/reuses the official local Supabase services, applies forward migrations without reset, creates only the registered fictional dataset and runs both the application and worker. Private generated passwords and keys stay in retained local Docker storage. The launcher never prints them.
 
@@ -18,13 +18,27 @@ On Windows, you can also double-click `Start-RoomSell.cmd` after starting Docker
 
 Builds use ordinary Docker networking. Only the running app requests host networking. If an older downloaded copy reports `additional privileges requested: pass "--allow=network.host"`, obtain the updated branch or remove **only** `network: host` nested inside `build:` in `compose.yaml`. Keep the separate `network_mode: host` runtime setting. `COMPOSE_BAKE=false` is not a reliable workaround on all Docker versions.
 
+## Update your existing Git checkout
+
+Open a terminal in the existing project folder and run:
+
+```sh
+git fetch origin
+git switch roomsell/bedroom-editor-milestone
+git pull --ff-only
+docker compose up -d --build
+docker compose logs -f app
+```
+
+Wait for **READY**, then refresh `http://localhost:3000/testing`. Ctrl+C exits the log display; the detached app keeps running. This updates the existing source and container, retaining `.env.trial` and the saved Docker volumes. It does not require another ZIP download.
+
 ## Try the consultation
 
 1. Enter as retailer (Alex), inspect Catalogue and Inventory. Seven fictional products cover bed, wardrobe, bedside, rug and desk, with illustrative images and explicit measured dimensions.
 2. Open Maya's measured bedroom project. A bed, two bedside tables, rug, desk and fully locked wardrobe are already placed.
-3. Move the bed using Smart Rearrange, review the preview and accept. Check that locked furniture stays exact. Switch between 2D and 3D; reload to verify persistence.
-4. Request assistance using **Local fictional-customer test adapter**. The worker returns checked advice; review and explicitly accept a layout. This test output is not from OpenAI.
-5. View/upload a room photograph, review pricing and issue a quotation/PDF.
+3. In the calibrated synthetic photo, drag an unlocked product, review the preview and **Accept layout**. Rotate/remove a product or place an actual SKU from **Store inventory**. Check that locked furniture stays exact; reload to verify saved positions and calibration.
+4. Scan/review visible furniture using the labelled synthetic adapter. In **Complete the room**, request catalogue additions, chosen-product removals or keep/remove advice for known photo regions using **Local fictional-customer test adapter**. Review each action explicitly. Original-image cleanup requires a separately reviewed background job. This test output is not from OpenAI.
+5. In **Products and budget**, review the chosen furniture/positions with the client, tick the review checkbox and click **Confirm design for quotation** before reviewing and issuing a new quotation/PDF. This is a local session review and resets after relevant changes/reload. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for the complete steps, including your own photo's short measured calibration.
 6. Return to `/testing` and enter as customer (Maya) to review the shared design and quotation. You can reserve, confirm or cancel the fictional order; as retailer you can record fulfilment. A durable Boreal supplier acknowledgement appears on the order. Repeating fulfilment reuses the same supplier reference and does not decrement stock twice.
 7. In Inventory, change a simulated upstream SKU quantity and synchronize. The simulated provider reconciles fulfilled quantities; no actual retailer is contacted.
 
@@ -45,6 +59,6 @@ Do not delete the volumes or use destructive reset options if you want to keep t
 
 ## Optional real OpenAI
 
-The trial works without any external keys. To test live OpenAI later, create an ignored `.env.trial` file next to `compose.yaml` and add your key as `ROOMSELL_AI_API_KEY`. Add a value locally, never in chat or source. Recreate the app with `docker compose up --build --force-recreate` and select OpenAI in the assistant. Explicitly choose whether photographs are sent.
+The trial works without any external keys. To test live OpenAI later, create an ignored `.env.trial` file next to `compose.yaml` and add your key as `OPENAI_API_KEY` (or `ROOMSELL_AI_API_KEY`). Add a value locally, never in chat or source. Recreate the app with `docker compose up -d --build --force-recreate` and select OpenAI in the photo tools or assistant. Explicitly choose whether photographs are sent. Live provider quality, billing/model access and physically measured-room accuracy require separate acceptance.
 
 Hosted Supabase keys are not needed for this trial. Keep them out of `.env.trial`; local seed/preflight deliberately rejects hosted bindings. The file is excluded from Git and Docker build context. Do not run automated database/browser acceptance tests concurrently with this trial's background worker.

@@ -211,7 +211,7 @@ export function WorkspaceFrame({ panels = [] }: { panels?: WorkspacePanel[] }) {
             ))}
           </nav>
           <Link href="/demo" className="business-demo-link">
-            Open synthetic editor demo
+            Open synthetic furniture demo
           </Link>
         </aside>
         <main className="business-main">

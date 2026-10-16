@@ -170,7 +170,7 @@ export function AuthForm({
           </p>
         )}
         <Link href="/demo" className="account-small account-muted">
-          Explore the synthetic editor demo
+          Explore the synthetic furniture demo
         </Link>
       </main>
     </div>

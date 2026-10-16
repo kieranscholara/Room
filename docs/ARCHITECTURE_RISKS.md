@@ -1,5 +1,17 @@
 # Architecture risk register
 
+## Photograph consultation risks — current, 16 October 2026
+
+The visible 2D section has been removed by product instruction. Geometry, locks, scene v2 and tenant checks remain. Earlier statements about preserving the 2D UI are historical.
+
+| Risk                                     | Control                                                                                                              | Remaining acceptance                                                                                              |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Scan misses or mislabels furniture       | Human review/correction of visible selections; no claim that one image identifies every object                       | Representative real rooms, occlusions and difficult lighting need live-provider review                            |
+| Advice removes the wrong representation  | Catalogue-object removal and original-image keep/remove choices remain distinct, reviewed, version-bound actions     | Salesperson must also update measured obstacles if physical furniture leaves                                      |
+| Recommendation changes before placement  | Resolve actual current variant/SKU, explicit click position and ordinary authoritative checked preview               | Stock/price may change later; quotation rechecks current data                                                     |
+| Stale client review leads to a new quote | Local confirmation binds scene/photo/product review and resets on relevant changes/reload; new quotation UI is gated | This is not stored legal consent or a server approval requirement; durable signature would need a separate design |
+| Removing 2D hides a geometry regression  | Reuse canonical writer/geometry and preserve locking, collision, coordinate and persistence quality gates            | Current photo-only and separate 3D workflows need executed acceptance results in VALIDATION.md                    |
+
 ## Photo workflow risks — current
 
 | Risk                                           | Control                                                                                                  | Remaining acceptance                                                                                         |

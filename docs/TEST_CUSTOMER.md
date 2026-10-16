@@ -1,6 +1,6 @@
 # Boreal Living fictional customer
 
-For the main photograph-selling workflow, start with **Open photo placement demo** on `/testing`. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for upload, calibration, immediate SKU placement, original-object removal and live OpenAI setup.
+For the main salesperson-operated photograph workflow, start with **Open photo placement demo** on `/testing`. Retailer projects open directly in the photo workspace; there is no visible 2D section. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for scan review, measurements/calibration, **Complete the room**, immediate SKU placement, reviewed removal and client confirmation before quotation.
 
 Boreal Living is an authorised synthetic retailer, not a real company. Its catalogue, SKUs, contacts and inventory are deliberately fictional. Generated studio product photographs and a staged bedroom reference are illustrative and are not proof of product dimensions or fit. Measured dimensions in the catalogue/scene remain authoritative.
 
@@ -26,8 +26,8 @@ The seed is repeatable: it repairs missing supplied images, reference and initia
 
 1. As manager, inspect Catalogue photographs and actual dimensions/SKUs. The measured bedroom contains a bed, two bedside tables, rug, desk and fully locked wardrobe.
 2. Inventory has a clearly labelled simulated provider panel. Change a test SKU's upstream stock, then run synchronous sync or queue background sync. Only the registered fictional connector uses this in-process provider; other connections use the secure real HTTPS adapter.
-3. Open Maya's project. View/upload a private room reference. The photograph does not confirm measurements. Select the local test assistant and request advice; the worker processes the durable job. Reloading the project recovers the latest job. Review its suggested layout and explicitly accept it. The wardrobe must remain exact.
-4. Review and issue the configured quotation. Switch to Maya and reserve the quotation for 15 minutes, then confirm or cancel. Return as Alex to record fulfilment. No payment or email is sent. The fictional upstream reconciles fulfilled quantities so later sync cannot restore sold stock.
+3. Open Maya's project. Upload/choose a private photograph, scan visible objects with human correction, confirm dimensions and the measured floor rectangle. In **Complete the room**, request advice using the labelled local provider for the synthetic example. Review catalogue additions/removals and known photo-region keep/remove choices. Choose a real fixture SKU, click its intended position in the image, drag/rotate and explicitly accept each checked preview. Original-image cleanup requires separate review; the locked wardrobe must remain exact.
+4. In **Products and budget**, review the saved furniture and positions with the client, tick the review checkbox and click **Confirm design for quotation**. Review and issue the configured quotation. The review is local and resets after scene/photo changes or reload; existing issued history stays available. Switch to Maya and reserve the quotation for 15 minutes, then confirm or cancel. Return as Alex to record fulfilment. No payment or email is sent. The fictional upstream reconciles fulfilled quantities so later sync cannot restore sold stock.
 5. For independent scenarios, create a fresh project rather than deleting or resetting the supplied consultation. Sharing grants view/edit/order separately; contacts alone provide no access.
 
 The fictional supplier now implements the optional custom REST fulfilment contract: exact mapped external IDs, quantities, order UUID and a frozen request hash; an immutable `BOREAL-…` acknowledgement; idempotent retries; explicit rejection if upstream test stock is unavailable. Its order ledger is retained privately alongside fixture state. It is an in-process simulator, not a real external supplier. Ordinary connections keep DNS-pinned public HTTPS transport and need a compatible supplier endpoint.
@@ -38,7 +38,7 @@ The sign-in page also offers password recovery. Local test mail is captured on p
 
 ## Consumer journey
 
-As Leo, open `/marketplace`, inspect explicitly published fictional offers and open/create a private measured personal room. Preview and accept a published product, set locks and compare 2D/3D. Personal rooms use exact measured 3D proxies. Reload to verify persistence.
+As Leo, open `/marketplace`, inspect explicitly published fictional offers and open/create a private measured personal room in the separate 3D-only workspace. Preview and accept a published product and set locks. Personal rooms use exact measured 3D proxies. Reload to verify persistence.
 
 Check the explicit consent box and request a quotation from a selected retailer. A new retailer project receives the measured room, that retailer's products and Leo's account contact. The original personal design stays private. Retailer staff can then issue an accurate quotation in the normal flow. Unpublish an offer in the manager's Marketplace panel to revoke its public image/API access.
 

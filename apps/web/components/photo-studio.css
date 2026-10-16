@@ -99,6 +99,22 @@
 .photo-products small {
   font-size: 10px;
 }
+.photo-catalogue-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+}
+.photo-placement-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  background: #edf4ec;
+}
 .photo-selection {
   display: flex;
   gap: 6px;
@@ -143,6 +159,17 @@
 .photo-analysis-item {
   padding: 8px;
   border-top: 1px solid #eee;
+}
+.photo-region-adjustment {
+  margin: 10px 0;
+  padding: 8px;
+  border: 1px solid #e5eadd;
+  border-radius: 5px;
+}
+.photo-region-adjustment summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #24564b;
 }
 .photo-tools .button {
   margin: 4px;

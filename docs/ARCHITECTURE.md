@@ -1,12 +1,37 @@
 # RoomSell architecture alignment audit
 
-## Calibrated photograph selling — current increment
+## Current architecture — salesperson photograph consultation
+
+The latest confirmed product flow removes the visible 2D section. `project-editor.tsx` presents a photo-only retailer consultation; `editor.tsx` uses `photo-studio.tsx` for retailer projects and the 3D viewer for legacy demo/personal rooms. The old Konva adapter is not mounted. No scene conversion, new dependency, database migration or replacement application is needed. Historical keep-2D decisions below describe earlier scope and are superseded for the user interface.
+
+`photo-consultation.tsx` owns the guided steps and local client review. `PhotoConsultationStatus` communicates selected private reference, photo revision, calibration and image readiness to the assistant and quotation review. The confirmation binds the current scene/photo and loaded chosen-product summary; relevant changes or reload invalidate it. This is a salesperson checklist, not a persisted customer signature or an additional server permission model. Existing quotation history stays readable, and backend issuance remains governed by current source/version, permissions, stock and immutable exact pricing.
+
+AI recommendations can propose authorised catalogue additions, checked catalogue-object removals and keep/remove actions for known reviewed photo regions. `project-assistant.tsx` routes a chosen variant to photo click placement. Scene previews and image cleanup retain independent human acceptance. Inferred labels/rectangles never become metric furniture or obstacles automatically.
+
+```mermaid
+flowchart LR
+  Consultation[Salesperson and client photograph consultation] --> Store[One metric scene and checked previews]
+  Consultation --> Photo[Revisioned calibration and reviewed image regions]
+  Advice[Catalogue and photo-grounded advice] --> Review[Human review and SKU choice]
+  Review --> Consultation
+  Store --> Writer[Existing authorised scene writer]
+  Writer --> Domain[Pure geometry, locks and layout]
+  Writer --> DB[Checked PostgreSQL transactions and RLS]
+  Photo --> DB
+  Consultation --> Confirmation[Local current-design review]
+  Confirmation --> Quote[Existing source-checked immutable quotation service]
+  Quote --> DB
+```
+
+The secure custom REST inventory/supplier boundaries are unchanged. Actual retailer credentials/contract, live OpenAI quality and physical room acceptance remain external gates. Current walkthrough and limits: [PHOTO_SELLING.md](PHOTO_SELLING.md). Executed results: [VALIDATION.md](VALIDATION.md).
+
+## Earlier calibrated photograph view increment — historical
 
 The approved photo-first workflow adds `photo-studio.tsx` as another adapter over the existing scene/store. `geometry/photo-calibration.ts` recovers a metric pinhole camera from four confirmed floor correspondences; the same `Furniture3D`/safe model loader renders original-size catalogue meshes over the private photograph. Local dragging uses the grabbed point's horizontal plane, pure checked proposals and the ordinary server preview/accept path. It never creates a second scene authority or calls AI on pointer movement.
 
 `photo-service.ts` and migration 019 persist separately revisioned calibration, reviewed image regions and the chosen background. `photo-jobs-service.ts` uses the existing durable queue for schema-validated vision and selected-area image edits through `photo-provider.ts`. Only a completed cleanup of the exact source revision can be applied; only reviewed pixels are composited, and the original reference remains unchanged. All reads remain project-scoped. Existing AI hourly quotas include these jobs. No dependencies were added. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for the workflow, limitations and live-provider acceptance boundary.
 
-## Six-area application implementation — current
+## Earlier six-area application implementation — historical checkpoint
 
 The existing modular monolith, 2D editor and scene v2 are preserved. No dependencies were added in this increment. The earlier audit and steps 1–4 checkpoint below remain historical evidence.
 
@@ -20,7 +45,7 @@ Operational implementation includes database health checks, authenticated cron e
 
 Boreal Living is an explicitly fictional, local-only fixture with generated photographs and isolated accounts. Its simulated feed reconciles fulfilled quantities. Real snapshot-only connectors cannot fulfil externally managed stock until an upstream order acknowledgement adapter exists; migration 015 fails closed. No external POS order, payment, shipment, billing or notification is implied.
 
-## Approved implementation update — 14 October 2026
+## Approved implementation checkpoint — historical, 14 October 2026
 
 The user approved implementation after the audit. The existing 2D editor, canonical schema v2 and one Next.js application remain in place. The historical audit against `660d52f887eb396506e76401145ee99e0a93de8d` is preserved below; statements in that snapshot describe the baseline, not the new implementation. Full combined build/database/browser gates are pending at the time of this update; current verification belongs in `VALIDATION.md`.
 

@@ -30,6 +30,7 @@ export function PhotoPhotoTools({
   onError,
   imageSize,
   workspaceSaving = false,
+  onPendingChange,
 }: {
   projectId: string;
   workspace: PhotoWorkspace;
@@ -38,6 +39,7 @@ export function PhotoPhotoTools({
   onError: (message: string) => void;
   imageSize: { width: number; height: number };
   workspaceSaving?: boolean;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const [status, setStatus] = useState<Status | null>(null),
     [provider, setProvider] = useState<'openai' | 'test'>('openai'),
@@ -71,6 +73,10 @@ export function PhotoPhotoTools({
   }, [path]);
   const changed = JSON.stringify(regions) !== JSON.stringify(workspace.regions),
     running = pending || Boolean(status?.jobs.some((j) => ['queued', 'running'].includes(j.status)));
+  useEffect(() => {
+    onPendingChange?.(changed || running || workspaceSaving);
+  }, [onPendingChange, changed, running, workspaceSaving]);
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
   async function queue(kind: 'photo_analysis' | 'photo_cleanup') {
     setPending(true);
     onError('');
@@ -138,13 +144,15 @@ export function PhotoPhotoTools({
     <div className="photo-tools" aria-label="Existing furniture in photograph">
       <h3>Existing furniture in the photograph</h3>
       <p>
-        Review suggested areas before removal. AI selections are approximate image areas; they do not
-        establish measurements or physical clearance.
+        Scan for visible furniture and review what to keep or remove. Check for missed or partly hidden
+        objects and add selections where needed. AI areas are approximate; they do not establish measurements
+        or physical clearance.
       </p>
       <Field label="Photograph AI provider">
         <select
           aria-label="Photograph AI provider"
           value={provider}
+          disabled={disabled}
           onChange={(e) => {
             setProvider(e.target.value as 'openai' | 'test');
             setConsent(false);
@@ -160,8 +168,13 @@ export function PhotoPhotoTools({
       </Field>
       {provider === 'openai' ? (
         <label>
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> I consent
-          to sending this selected photograph to OpenAI for analysis or removal.
+          <input
+            type="checkbox"
+            checked={consent}
+            disabled={disabled}
+            onChange={(e) => setConsent(e.target.checked)}
+          />{' '}
+          I consent to sending this selected photograph to OpenAI for analysis or removal.
         </label>
       ) : (
         <p>
@@ -212,39 +225,20 @@ export function PhotoPhotoTools({
           </Button>
         </div>
       )}
-      <p>
-        Image: {imageSize.width} × {imageSize.height} px. Selection coordinates below are percentages of the
-        photograph.
-      </p>
       {regions.map((region, index) => (
         <div className="photo-analysis-item" key={region.id}>
           <Field label={`Selection ${index + 1} label`}>
             <input
               aria-label={`Selection ${index + 1} label`}
+              disabled={disabled}
               value={region.label}
               onChange={(e) => update(region.id, { label: e.target.value })}
             />
           </Field>
-          <div className="photo-fields">
-            {(['x', 'y', 'width', 'height'] as const).map((key) => (
-              <Field key={key} label={`${key} (%)`}>
-                <input
-                  aria-label={`Selection ${index + 1} ${key} (%)`}
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={Number((region.bounds[key] * 100).toFixed(2))}
-                  onChange={(e) =>
-                    update(region.id, { bounds: { ...region.bounds, [key]: Number(e.target.value) / 100 } })
-                  }
-                />
-              </Field>
-            ))}
-          </div>
           <Field label="Existing object action">
             <select
               aria-label={`Selection ${index + 1} action`}
+              disabled={disabled}
               value={region.disposition}
               onChange={(e) =>
                 update(region.id, { disposition: e.target.value as 'keep' | 'remove', foreground: false })
@@ -254,15 +248,40 @@ export function PhotoPhotoTools({
               <option value="remove">Remove from photograph</option>
             </select>
           </Field>
-          <label>
-            <input
-              type="checkbox"
-              disabled={region.disposition !== 'keep'}
-              checked={region.foreground}
-              onChange={(e) => update(region.id, { foreground: e.target.checked })}
-            />{' '}
-            Keep this rectangular area in front of new products
-          </label>
+          <details className="photo-region-adjustment">
+            <summary>Adjust detected area</summary>
+            <p>
+              Image: {imageSize.width} × {imageSize.height} px. These coordinates are percentages of the
+              photograph.
+            </p>
+            <div className="photo-fields">
+              {(['x', 'y', 'width', 'height'] as const).map((key) => (
+                <Field key={key} label={`${key} (%)`}>
+                  <input
+                    aria-label={`Selection ${index + 1} ${key} (%)`}
+                    disabled={disabled}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={Number((region.bounds[key] * 100).toFixed(2))}
+                    onChange={(e) =>
+                      update(region.id, { bounds: { ...region.bounds, [key]: Number(e.target.value) / 100 } })
+                    }
+                  />
+                </Field>
+              ))}
+            </div>
+            <label>
+              <input
+                type="checkbox"
+                disabled={disabled || region.disposition !== 'keep'}
+                checked={region.foreground}
+                onChange={(e) => update(region.id, { foreground: e.target.checked })}
+              />{' '}
+              Keep this rectangular area in front of new products
+            </label>
+          </details>
           <Button
             disabled={disabled}
             onClick={() => setRegions((old) => old.filter((r) => r.id !== region.id))}
@@ -344,6 +363,7 @@ export function PhotoPhotoTools({
             <Field key={key} label={`Obstacle ${key} (m)`}>
               <input
                 aria-label={`Photo obstacle ${key} (m)`}
+                disabled={disabled}
                 type="number"
                 step="0.01"
                 value={obstacle[key]}

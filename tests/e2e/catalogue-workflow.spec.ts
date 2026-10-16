@@ -2,8 +2,15 @@ import { expect, test, type Page } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { CSV_HEADERS } from '@roomsell/catalogue';
+import { calibratePhotoInBrowser, clickPhotoFloor } from './photo-helpers';
 
 test.setTimeout(180_000);
+test.use({
+  launchOptions: {
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  },
+});
 async function retailer(page: Page) {
   const signup = await page.request.post('/api/auth/signup', {
     data: {
@@ -111,8 +118,9 @@ test('retailer enters real records, uploads a photograph and accepts catalogue f
   await expect(page.getByRole('heading', { name: 'Products and budget', exact: true })).toBeVisible();
   const projectId = new URL(page.url()).pathname.split('/').at(-1)!;
   expect((await scene(page, projectId)).objects).toEqual([]);
-  await page.getByLabel('Furniture variant', { exact: true }).selectOption(product.variants[0].id);
-  await page.getByRole('button', { name: 'Preview catalogue placement', exact: true }).click();
+  const { calibration } = await calibratePhotoInBrowser(page, projectId);
+  await page.getByRole('button', { name: 'Place Measured showroom bed', exact: true }).click();
+  await clickPhotoFloor(page, { x: 3, y: 0, z: 2.5 }, calibration);
   await expect(page.getByRole('region', { name: 'Layout preview', exact: true })).toBeVisible();
   expect((await scene(page, projectId)).objects).toEqual([]);
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
@@ -130,12 +138,10 @@ test('retailer enters real records, uploads a photograph and accepts catalogue f
   });
   await page.reload();
   await expect(page.getByLabel('Project budget totals', { exact: true })).toContainText('€599.95');
-  await page.getByRole('button', { name: 'Select Measured showroom bed', exact: true }).click();
+  await page.getByTestId(`photo-object-${accepted.objects[0].id}`).click();
   await page.getByRole('button', { name: 'Lock product', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Unlock product', exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Preview removal of Measured showroom bed', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Remove selected furniture', exact: true })).toBeDisabled();
   expect((await scene(page, projectId)).objects[0].locks.product).toBe(true);
   expect(pageErrors).toEqual([]);
 });
@@ -227,6 +233,7 @@ test('CSV imports show row errors atomically and joined customers receive only t
       (await customerContext.request.post('/api/invitations/accept', { data: { token } })).status(),
     ).toBe(200);
     await page.goto(`/projects/${project.id}`);
+    await page.getByText('Orders and customer access', { exact: true }).click();
     await page.getByLabel('Customer account', { exact: true }).selectOption(customer.id);
     await expect(
       page.getByRole('checkbox', { name: 'Allow this customer to edit their design', exact: true }),
@@ -239,9 +246,12 @@ test('CSV imports show row errors atomically and joined customers receive only t
     await expect(customerPage.getByRole('button', { name: 'Customers', exact: true })).toHaveCount(0);
     await customerPage.getByRole('link', { name: 'Open project', exact: true }).click();
     await expect(
-      customerPage.getByText('View-only project. You can inspect the plan and its saved revisions.', {
-        exact: false,
-      }),
+      customerPage.getByText(
+        'View-only consultation. Review the saved photograph, furniture and issued quotations.',
+        {
+          exact: false,
+        },
+      ),
     ).toBeVisible();
     await expect(customerPage.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
     await expect(

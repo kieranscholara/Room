@@ -2,6 +2,7 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import type { Scene } from '@roomsell/scene-core';
+import { calibratePhotoInBrowser, confirmPhotoDesign, uploadCalibratedPhoto } from './photo-helpers';
 test.setTimeout(180000);
 test.use({
   launchOptions: {
@@ -120,11 +121,7 @@ test('fictional retailer uploads a private room photo, reviews assistance and fu
   await expect(page.getByLabel('AI provider', { exact: true })).toHaveValue('test');
   const before = (await get(page.request, `/api/projects/${p.id}/scene`)).scene as Scene;
   const locked = before.objects.find((x) => x.locks.position)!;
-  await page
-    .getByLabel('Room photograph', { exact: true })
-    .setInputFiles('fixtures/boreal-living/images/room.png');
-  await page.getByRole('button', { name: 'Upload room photograph', exact: true }).click();
-  await expect(page.getByRole('img', { name: 'room.png', exact: true })).toBeVisible();
+  await calibratePhotoInBrowser(page, p.id);
   const photos = await get(page.request, `/api/projects/${p.id}/references`);
   expect(photos).toHaveLength(1);
   expect((await page.request.get(photos[0].url)).headers()['content-type']).toBe('image/png');
@@ -148,6 +145,7 @@ test('fictional retailer uploads a private room photo, reviews assistance and fu
   const after = (await get(page.request, `/api/projects/${p.id}/scene`)).scene as Scene;
   expect(after.version).toBe(before.version + 1);
   expect(after.objects.find((x) => x.id === locked.id)).toEqual(locked);
+  await confirmPhotoDesign(page);
   await page.getByRole('button', { name: 'Review quotation', exact: true }).click();
   await page.getByRole('button', { name: 'Issue reviewed quotation', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Issued quotation details' })).toBeVisible();
@@ -155,6 +153,7 @@ test('fictional retailer uploads a private room photo, reviews assistance and fu
   expect(quotes).toHaveLength(1);
   await enter(page, 'customer');
   await page.goto(`/projects/${p.id}`);
+  await page.getByText('Orders and customer access', { exact: true }).click();
   await page.getByRole('button', { name: 'Reserve quotation stock', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Confirm order', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Confirm order', exact: true }).click();
@@ -170,6 +169,7 @@ test('fictional retailer uploads a private room photo, reviews assistance and fu
   ).toBe(403);
   await enter(page, 'retailer');
   await page.goto(`/projects/${p.id}`);
+  await page.getByText('Orders and customer access', { exact: true }).click();
   await page.getByRole('button', { name: 'Record fulfilment', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Project orders' })).toContainText('fulfilled');
   await expect(page.getByRole('region', { name: 'Project orders' })).toContainText(
@@ -212,7 +212,9 @@ test('a fictional supplier decline keeps stock intact and allows the retailer to
 }) => {
   await enter(page, 'retailer');
   const { p } = await createProject(page);
+  await uploadCalibratedPhoto(page.request, p.id);
   await page.goto(`/projects/${p.id}`);
+  await confirmPhotoDesign(page);
   await page.getByRole('button', { name: 'Review quotation', exact: true }).click();
   await page.getByRole('button', { name: 'Issue reviewed quotation', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Issued quotation details' })).toBeVisible();
@@ -246,6 +248,7 @@ test('a fictional supplier decline keeps stock intact and allows the retailer to
       ).status(),
     ).toBe(200);
     await page.reload();
+    await page.getByText('Orders and customer access', { exact: true }).click();
     await page.getByRole('button', { name: 'Record fulfilment', exact: true }).click();
     const panel = page.getByRole('region', { name: 'Project orders' });
     await expect(panel).toContainText('Supplier rejected: BOREAL-');
@@ -278,7 +281,7 @@ test('a fictional supplier decline keeps stock intact and allows the retailer to
   }
 });
 
-test('consumer owns a private 2D and 3D design and explicitly shares a retailer enquiry', async ({
+test('consumer owns a private measured 3D design and explicitly shares a retailer enquiry', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -318,7 +321,7 @@ test('consumer owns a private 2D and 3D design and explicitly shares a retailer 
   const saved = (await get(page.request, `/api/consumer/projects/${p.id}/scene`)).scene;
   expect(saved.objects).toHaveLength(1);
   expect(saved.objects[0].sku).toBe(offer.sku);
-  await page.getByRole('button', { name: '3D room view', exact: true }).click();
+  await expect(page.getByRole('button', { name: '2D floor plan', exact: true })).toHaveCount(0);
   await expect(page.getByLabel('3D dimension and model status')).toContainText('1');
   await page.reload();
   expect((await get(page.request, `/api/consumer/projects/${p.id}/scene`)).scene).toEqual(saved);

@@ -1,9 +1,15 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Field } from '@roomsell/ui';
 import type { Proposal } from '@roomsell/scene-core';
 import type { QuotationPricing } from '@roomsell/pricing';
-import type { AssistantCandidate } from '../lib/assistant-contract';
+import type {
+  AssistantCandidate,
+  AssistantExistingFurniture,
+  AssistantSceneRemoval,
+} from '../lib/assistant-contract';
+import type { PhotoConsultationStatus } from '../lib/photo-consultation-status';
+import type { PhotoWorkspace } from '../lib/photo-contract';
 import { useEditor } from '../lib/editor-store';
 import { accountRequest } from './workspace-frame';
 import { formatMoney } from './workspace-business-types';
@@ -16,6 +22,10 @@ interface Result {
   calculation: QuotationPricing;
   overBudget: boolean;
   proposal: Proposal | null;
+  sceneRemovals?: AssistantSceneRemoval[];
+  existingFurniture?: AssistantExistingFurniture[];
+  photoWorkspaces?: { referenceId: string; expectedRevision: number }[];
+  calculationBasis?: string;
 }
 interface Job {
   id: string;
@@ -28,13 +38,31 @@ export function ProjectAssistant({
   projectId,
   canEdit,
   staff,
+  photoContext,
+  onPhotoAdviceApplied,
+  onPhotoPendingChange,
+  onChooseProduct,
 }: {
   projectId: string;
   canEdit: boolean;
   staff: boolean;
+  photoContext?: PhotoConsultationStatus;
+  onPhotoAdviceApplied?: () => void;
+  onPhotoPendingChange?: (pending: boolean) => void;
+  onChooseProduct?: (variantId: string, sku: string) => void;
 }) {
   const { scene, endpoint, proposal, busy, preview, reviewProposal } = useEditor(),
     current = endpoint === `/api/projects/${projectId}/scene` ? scene : null;
+  const latestContext = useRef({ projectId, canEdit, staff, photoContext });
+  latestContext.current = { projectId, canEdit, staff, photoContext };
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      onPhotoPendingChange?.(false);
+    };
+  }, [onPhotoPendingChange]);
   const [status, setStatus] = useState<{ openAiConfigured: boolean; testAdapterEnabled: boolean } | null>(
       null,
     ),
@@ -46,8 +74,8 @@ export function ProjectAssistant({
     [job, setJob] = useState<Job | null>(null),
     [error, setError] = useState(''),
     [submitting, setSubmitting] = useState(false),
-    [x, setX] = useState(''),
-    [z, setZ] = useState('');
+    [reviewedPhotoIds, setReviewedPhotoIds] = useState<string[]>([]),
+    [applyingPhoto, setApplyingPhoto] = useState(false);
   const load = useCallback(async () => {
     try {
       const [info, photos, jobs] = await Promise.all([
@@ -69,6 +97,14 @@ export function ProjectAssistant({
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    setUsePhotos(false);
+    setSelectedReferences(photoContext?.referenceId ? [photoContext.referenceId] : []);
+    void load();
+  }, [photoContext?.referenceId, load]);
+  useEffect(() => {
+    setReviewedPhotoIds([]);
+  }, [job?.id, photoContext?.photoRevision]);
   useEffect(() => {
     if (!job || !['queued', 'running'].includes(job.status)) return;
     let cancelled = false;
@@ -93,13 +129,103 @@ export function ProjectAssistant({
     };
   }, [job?.id, job?.status]);
   const result = job?.status === 'completed' ? job.result : null;
+  const adviceCurrent = Boolean(
+    result &&
+    current?.version === result.baseVersion &&
+    (!photoContext ||
+      !(result.photoWorkspaces ?? []).length ||
+      (result.photoWorkspaces ?? []).some(
+        (p) =>
+          p.referenceId === photoContext.referenceId && p.expectedRevision === photoContext.photoRevision,
+      )),
+  );
+  const adviceDisabled =
+    !canEdit || busy || Boolean(proposal) || submitting || applyingPhoto || !adviceCurrent;
+  async function savePhotoAdvice(referenceId: string) {
+    if (!canEdit || !staff || !result || !adviceCurrent || !current || applyingPhoto) return;
+    const sceneId = current.id;
+    const expectedPhoto = photoContext;
+    const assertCurrent = (workspaceRevision: number) => {
+      const live = useEditor.getState();
+      const latest = latestContext.current;
+      if (
+        !mounted.current ||
+        !latest.canEdit ||
+        !latest.staff ||
+        latest.projectId !== projectId ||
+        live.endpoint !== `/api/projects/${projectId}/scene` ||
+        live.scene?.id !== sceneId ||
+        live.scene?.version !== result.baseVersion ||
+        live.busy ||
+        live.proposal ||
+        (expectedPhoto &&
+          (latest.photoContext?.referenceId !== referenceId ||
+            latest.photoContext?.referenceId !== expectedPhoto.referenceId ||
+            latest.photoContext?.photoRevision !== expectedPhoto.photoRevision ||
+            latest.photoContext?.photoRevision !== workspaceRevision))
+      )
+        throw new Error('The room or photograph changed. Request fresh completion advice.');
+    };
+    setApplyingPhoto(true);
+    onPhotoPendingChange?.(true);
+    setError('');
+    try {
+      const items = (result.existingFurniture ?? []).filter(
+        (a) => a.referenceId === referenceId && reviewedPhotoIds.includes(a.regionId),
+      );
+      if (!items.length) return;
+      const workspace = await accountRequest<PhotoWorkspace>(
+        `/api/projects/${projectId}/photos/${referenceId}`,
+      );
+      if (
+        workspace.referenceId !== referenceId ||
+        items.some((a) => a.workspaceRevision !== workspace.revision)
+      )
+        throw new Error('The room or photograph changed. Request fresh completion advice.');
+      const regions = workspace.regions.map((region) => {
+        const item = items.find((a) => a.regionId === region.id);
+        return item
+          ? {
+              ...region,
+              disposition: item.action,
+              foreground: item.action === 'remove' ? false : region.foreground,
+            }
+          : region;
+      });
+      if (items.some((a) => !workspace.regions.some((region) => region.id === a.regionId)))
+        throw new Error('A reviewed selection is no longer available.');
+      assertCurrent(workspace.revision);
+      await accountRequest(`/api/projects/${projectId}/photos/${referenceId}`, {
+        method: 'PUT',
+        body: {
+          expectedRevision: workspace.revision,
+          calibration: workspace.calibration,
+          regions,
+          backgroundReferenceId: workspace.backgroundReferenceId,
+        },
+      });
+      if (mounted.current && latestContext.current.projectId === projectId) {
+        setReviewedPhotoIds([]);
+        onPhotoAdviceApplied?.();
+        document.getElementById('consultation-room')?.scrollIntoView({ behavior: 'smooth' });
+      }
+    } catch (reason) {
+      if (mounted.current)
+        setError(reason instanceof Error ? reason.message : 'Could not save the reviewed photo choices.');
+    } finally {
+      if (mounted.current) {
+        setApplyingPhoto(false);
+        onPhotoPendingChange?.(false);
+      }
+    }
+  }
   return (
     <section id="project-design-assistant" className="account-panel" aria-label="Design assistant">
       <div>
-        <h2>Design assistant</h2>
+        <h2>Complete the room</h2>
         <p className="account-muted">
-          Suggestions use verified catalogue products and configured prices. Every layout goes through the
-          existing geometry, locking and preview rules before you accept it.
+          Review which existing pieces to keep or remove, then choose additions from the store catalogue.
+          Furniture changes and photo removal areas are saved only after your review.
         </p>
       </div>
       {error && (
@@ -116,6 +242,27 @@ export function ProjectAssistant({
             setSubmitting(true);
             setError('');
             try {
+              const referenceIds =
+                provider === 'test' && photoContext?.referenceId
+                  ? [photoContext.referenceId]
+                  : provider === 'openai' && usePhotos
+                    ? photoContext?.referenceId
+                      ? [photoContext.referenceId]
+                      : selectedReferences
+                    : [];
+              const workspaces = await Promise.all(
+                referenceIds.map((id) =>
+                  accountRequest<PhotoWorkspace>(`/api/projects/${projectId}/photos/${id}`),
+                ),
+              );
+              if (
+                photoContext?.referenceId &&
+                workspaces.some(
+                  (w) =>
+                    w.referenceId === photoContext.referenceId && w.revision !== photoContext.photoRevision,
+                )
+              )
+                throw new Error('The room photograph changed. Refresh it before requesting advice.');
               setJob(
                 await accountRequest<Job>(`/api/projects/${projectId}/assistant`, {
                   method: 'POST',
@@ -123,7 +270,11 @@ export function ProjectAssistant({
                     brief,
                     expectedSceneVersion: current.version,
                     provider,
-                    referenceIds: provider === 'openai' && usePhotos ? selectedReferences : [],
+                    referenceIds,
+                    photoWorkspaces: workspaces.map((w) => ({
+                      referenceId: w.referenceId,
+                      expectedRevision: w.revision,
+                    })),
                     idempotencyKey: crypto.randomUUID(),
                   },
                 }),
@@ -178,7 +329,10 @@ export function ProjectAssistant({
             />{' '}
             I consent to sending the selected room photographs to OpenAI
           </label>
-          {usePhotos && provider === 'openai' && (
+          {photoContext?.referenceId && (
+            <p className="account-muted">Advice will use the room photograph currently open above.</p>
+          )}
+          {usePhotos && provider === 'openai' && !photoContext && (
             <fieldset>
               <legend>Choose up to two photographs for inventory suggestions</legend>
               {references.map((photo) => (
@@ -203,6 +357,12 @@ export function ProjectAssistant({
             If selected, these private references are sent to OpenAI for visual guidance. Stored measurements
             stay authoritative.
           </p>
+          {photoContext && (!photoContext.referenceId || !current?.room.measurementsConfirmed) && (
+            <p className="account-notice">
+              Upload the room photograph and confirm its measured dimensions before requesting completion
+              advice.
+            </p>
+          )}
           <Button
             type="submit"
             variant="primary"
@@ -213,7 +373,12 @@ export function ProjectAssistant({
               submitting ||
               ['queued', 'running'].includes(job?.status ?? '') ||
               (!status?.openAiConfigured && provider === 'openai') ||
-              (provider === 'openai' && usePhotos && !selectedReferences.length)
+              (provider === 'openai' &&
+                usePhotos &&
+                !photoContext?.referenceId &&
+                !selectedReferences.length) ||
+              Boolean(photoContext && (!photoContext.referenceId || !current?.room.measurementsConfirmed)) ||
+              Boolean(photoContext?.referenceId && provider === 'openai' && !usePhotos)
             }
           >
             Request design assistance
@@ -235,7 +400,9 @@ export function ProjectAssistant({
         <div role="region" aria-label="Design assistance result">
           <p>{result.summary}</p>
           <p>
-            Estimated total with retailer charges:{' '}
+            {result.calculationBasis === 'projected_completion'
+              ? 'Proposed completion estimate with retailer charges:'
+              : 'Estimated total with retailer charges:'}{' '}
             <strong>
               {formatMoney(result.calculation.totals.grandTotalMinor, result.calculation.policy.currency)}
             </strong>
@@ -243,7 +410,7 @@ export function ProjectAssistant({
           </p>
           {result.proposal && (
             <Button
-              disabled={busy || !!proposal || current?.version !== result.baseVersion}
+              disabled={adviceDisabled}
               onClick={() => {
                 if (!reviewProposal(result.proposal!, `/api/projects/${projectId}/scene`))
                   setError('The scene changed or another preview is open. Request fresh assistance.');
@@ -252,28 +419,80 @@ export function ProjectAssistant({
               Review suggested layout
             </Button>
           )}
+          {!adviceCurrent && (
+            <p className="account-notice">
+              The design or reviewed photograph has changed. Request fresh advice before applying these
+              suggestions.
+            </p>
+          )}
+          {staff && Boolean(result.sceneRemovals?.length) && (
+            <div aria-label="Suggested catalogue removals">
+              <h3>Suggested removals from the chosen products</h3>
+              {result.sceneRemovals!.map((item) => (
+                <article className="business-record" key={item.objectId}>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <p>{item.rationale}</p>
+                  </div>
+                  <Button disabled={adviceDisabled} onClick={() => void preview(item.operation)}>
+                    Preview removal of {item.name}
+                  </Button>
+                </article>
+              ))}
+            </div>
+          )}
+          {staff && Boolean(result.existingFurniture?.length) && (
+            <div aria-label="Suggested existing furniture choices">
+              <h3>Existing furniture in the room photograph</h3>
+              <p>
+                Select the advice you agree with. Saving a removal choice marks its area for review; use the
+                photograph tools to generate and approve the cleaned image.
+              </p>
+              {[...new Set(result.existingFurniture!.map((item) => item.referenceId))].map((referenceId) => (
+                <div key={referenceId}>
+                  {result
+                    .existingFurniture!.filter((item) => item.referenceId === referenceId)
+                    .map((item) => (
+                      <article className="business-record" key={item.regionId}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            aria-label={`Use suggestion for ${item.label}`}
+                            disabled={adviceDisabled}
+                            checked={reviewedPhotoIds.includes(item.regionId)}
+                            onChange={(event) =>
+                              setReviewedPhotoIds((old) =>
+                                event.target.checked
+                                  ? [...old, item.regionId]
+                                  : old.filter((id) => id !== item.regionId),
+                              )
+                            }
+                          />
+                          <strong>
+                            {item.label}: {item.action === 'remove' ? 'suggested removal' : 'suggested keep'}
+                          </strong>
+                          <p>{item.rationale}</p>
+                        </label>
+                      </article>
+                    ))}
+                  <Button
+                    disabled={
+                      adviceDisabled ||
+                      !result.existingFurniture!.some(
+                        (item) =>
+                          item.referenceId === referenceId && reviewedPhotoIds.includes(item.regionId),
+                      )
+                    }
+                    onClick={() => void savePhotoAdvice(referenceId)}
+                  >
+                    Save reviewed photo choices
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
           {staff && result.recommendations.length > 0 && (
             <>
-              <div className="business-form-row">
-                <Field label="Recommendation X (m)">
-                  <input
-                    aria-label="Recommendation X (m)"
-                    type="number"
-                    step="0.1"
-                    value={x}
-                    onChange={(event) => setX(event.target.value)}
-                  />
-                </Field>
-                <Field label="Recommendation Z (m)">
-                  <input
-                    aria-label="Recommendation Z (m)"
-                    type="number"
-                    step="0.1"
-                    value={z}
-                    onChange={(event) => setZ(event.target.value)}
-                  />
-                </Field>
-              </div>
               <div className="business-card-list">
                 {result.recommendations.map((item) => (
                   <article className="business-record" key={item.variantId}>
@@ -287,32 +506,16 @@ export function ProjectAssistant({
                       </p>
                     </div>
                     <Button
-                      disabled={busy || !!proposal || !current}
-                      onClick={() => {
-                        if (!current) return;
-                        void preview({
-                          type: 'add-object',
-                          object: {
-                            id: crypto.randomUUID(),
-                            variantId: item.variantId,
-                            sku: item.sku,
-                            name: item.name,
-                            category: item.category,
-                            dimensions: item.dimensions,
-                            color: item.color,
-                            solid: item.category !== 'rug',
-                            locks: { position: false, rotation: false, product: false },
-                            transform: {
-                              x: x === '' ? current.room.width / 2 : Number(x),
-                              y: 0,
-                              z: z === '' ? current.room.depth / 2 : Number(z),
-                              rotation: 0,
-                            },
-                          },
-                        });
-                      }}
+                      disabled={
+                        adviceDisabled ||
+                        !current ||
+                        !photoContext?.calibrated ||
+                        !photoContext.imageReady ||
+                        !onChooseProduct
+                      }
+                      onClick={() => onChooseProduct?.(item.variantId, item.sku)}
                     >
-                      Preview one {item.name}
+                      Choose {item.name} for photograph
                     </Button>
                   </article>
                 ))}

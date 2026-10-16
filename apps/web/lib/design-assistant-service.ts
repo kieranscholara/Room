@@ -10,9 +10,11 @@ import {
 import { pricingPolicySchema } from '@roomsell/pricing';
 import {
   assistantRequestSchema,
+  assertAssistantPhotoSources,
   testAssistantIntent,
   validateAssistantIntent,
   type AssistantCandidate,
+  type AssistantPhotoContext,
 } from './assistant-contract';
 import { openAiDesign, openAiConfigured } from './ai-provider';
 import { testingEnabled } from './local-testing';
@@ -20,6 +22,50 @@ import { adminClient, databaseError } from './supabase-server';
 import { projectContext, projectEditor, type ProjectContext } from './project-service';
 import { ServiceError } from './editor-service';
 import { enqueueJob, type TenantJob } from './jobs-service';
+import { photoWorkspaceDto } from './photo-service';
+
+async function assistantPhotoContexts(projectId: string, organisationId: string, referenceIds: string[]) {
+  if (!referenceIds.length) return [];
+  const admin = adminClient();
+  const [references, workspaces] = await Promise.all([
+    admin
+      .from('room_references')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('organisation_id', organisationId)
+      .in('id', referenceIds),
+    admin
+      .from('photo_workspaces')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('organisation_id', organisationId)
+      .in('reference_id', referenceIds),
+  ]);
+  databaseError(references.error);
+  databaseError(workspaces.error);
+  if (references.data?.length !== referenceIds.length)
+    throw new ServiceError(404, 'A selected private reference is no longer available.');
+  return referenceIds.map((referenceId): AssistantPhotoContext => {
+    const row = workspaces.data?.find((item) => item.reference_id === referenceId);
+    const workspace = row ? photoWorkspaceDto(row) : null;
+    return {
+      referenceId,
+      revision: workspace?.revision ?? 0,
+      regions: workspace?.regions ?? [],
+      backgroundReferenceId: workspace?.backgroundReferenceId ?? null,
+    };
+  });
+}
+function checkPhotoSources(
+  expected: { referenceId: string; expectedRevision: number }[],
+  photos: AssistantPhotoContext[],
+) {
+  try {
+    assertAssistantPhotoSources(expected, photos);
+  } catch (error) {
+    throw new ServiceError(409, error instanceof Error ? error.message : 'Photograph selections changed.');
+  }
+}
 
 export async function assistantStatus() {
   return { openAiConfigured: openAiConfigured(), testAdapterEnabled: testingEnabled() };
@@ -37,12 +83,31 @@ export async function queueDesignAssistance(projectId: string, input: unknown) {
   const scene = await (await projectEditor(context)).read();
   if (scene.scene.version !== request.expectedSceneVersion)
     throw new ServiceError(409, 'Scene changed; review the current design.');
+  const photos = await assistantPhotoContexts(
+    projectId,
+    context.project.organisation_id,
+    request.referenceIds,
+  );
+  if (request.photoWorkspaces.length)
+    checkPhotoSources(
+      request.photoWorkspaces,
+      photos.filter((photo) =>
+        request.photoWorkspaces.some((source) => source.referenceId === photo.referenceId),
+      ),
+    );
+  const snapshot = {
+    ...request,
+    photoWorkspaces: photos.map((photo) => ({
+      referenceId: photo.referenceId,
+      expectedRevision: photo.revision,
+    })),
+  };
   return enqueueJob(
     context.project.organisation_id,
     projectId,
     context.user.id,
     'ai_design',
-    request as unknown as Record<string, unknown>,
+    snapshot as unknown as Record<string, unknown>,
     request.idempotencyKey,
   );
 }
@@ -79,6 +144,16 @@ export async function executeDesignJob(job: TenantJob) {
     scene = state.scene;
   if (scene.version !== request.expectedSceneVersion)
     throw new ServiceError(409, 'The saved design changed; request fresh assistance.');
+  if (context.project.organisation_id !== job.organisation_id)
+    throw new ServiceError(403, 'Design assistance organisation does not match the project.');
+  const selectedPhotos = await assistantPhotoContexts(
+    job.project_id,
+    job.organisation_id,
+    request.referenceIds,
+  );
+  // Legacy queued requests can still use photo style context; completion advice needs an immutable snapshot.
+  const photoWorkspaces = request.photoWorkspaces.length ? selectedPhotos : [];
+  checkPhotoSources(request.photoWorkspaces, photoWorkspaces);
   const admin = adminClient();
   const [catalogue, policyResult] = await Promise.all([
     admin
@@ -154,7 +229,7 @@ export async function executeDesignJob(job: TenantJob) {
     )
       throw new ServiceError(409, 'Saved furniture needs catalogue review before recommendations.');
   }
-  const photos: { mimeType: string; base64: string }[] = [];
+  const photos: { referenceId: string; mimeType: string; base64: string }[] = [];
   if (request.referenceIds.length && request.provider === 'openai') {
     const references = await admin
       .from('room_references')
@@ -172,11 +247,12 @@ export async function executeDesignJob(job: TenantJob) {
       const bytes = await sharp(Buffer.from(await download.data.arrayBuffer()), {
         limitInputPixels: 40000000,
       })
+        .rotate()
         .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 70 })
         .toBuffer();
       if (bytes.length > 1024 * 1024) throw new ServiceError(422, 'Prepared AI reference is too large.');
-      photos.push({ mimeType: 'image/jpeg', base64: bytes.toString('base64') });
+      photos.push({ referenceId: reference.id, mimeType: 'image/jpeg', base64: bytes.toString('base64') });
     }
   }
   const budgetMinor = Math.min(
@@ -185,7 +261,7 @@ export async function executeDesignJob(job: TenantJob) {
   );
   const intention =
     request.provider === 'test'
-      ? testAssistantIntent(scene, candidates, policy, budgetMinor)
+      ? testAssistantIntent(scene, candidates, policy, budgetMinor, photoWorkspaces, request.brief)
       : await openAiDesign({
           brief: request.brief,
           scene: sceneSchema.parse(scene),
@@ -193,6 +269,7 @@ export async function executeDesignJob(job: TenantJob) {
           policy,
           budgetMinor,
           photos,
+          photoWorkspaces,
         });
   if (context.role === 'customer' && intention.recommendations.length)
     throw new ServiceError(
@@ -203,6 +280,8 @@ export async function executeDesignJob(job: TenantJob) {
   const freshState = await (await projectEditor(freshContext)).read();
   if (freshState.scene.version !== scene.version)
     throw new ServiceError(409, 'Design changed while assistance was running; request fresh advice.');
+  const freshPhotos = await assistantPhotoContexts(job.project_id, job.organisation_id, request.referenceIds);
+  checkPhotoSources(request.photoWorkspaces, request.photoWorkspaces.length ? freshPhotos : []);
   const ids = permittedRows.map((row) => row.id);
   const [freshCatalogue, freshPolicy, freshStock] = await Promise.all([
     admin
@@ -242,7 +321,7 @@ export async function executeDesignJob(job: TenantJob) {
     );
   let checked;
   try {
-    checked = validateAssistantIntent(intention, scene, candidates, policy, budgetMinor);
+    checked = validateAssistantIntent(intention, scene, candidates, policy, budgetMinor, photoWorkspaces);
   } catch (error) {
     throw new ServiceError(
       422,
@@ -267,5 +346,9 @@ export async function executeDesignJob(job: TenantJob) {
     calculation: checked.calculation,
     overBudget: checked.overBudget,
     proposal,
+    sceneRemovals: checked.sceneRemovals,
+    existingFurniture: checked.existingFurniture,
+    photoWorkspaces: request.photoWorkspaces,
+    calculationBasis: checked.calculationBasis,
   };
 }

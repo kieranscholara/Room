@@ -1,17 +1,17 @@
 # RoomSell fictional-customer MVP
 
-The current delivery is a local, account-free customer trial. It preserves the existing measured editor and uses explicitly synthetic Boreal Living products, images, commercial policy, users, supplier inventory and acknowledgements. It does not collect payment or send real supplier orders.
+The current delivery is a salesperson-operated photograph consultation with a local, account-free trial. Retailer projects are photo-only; the visible 2D section is removed. Existing metric geometry, locks, tenant boundaries and immutable quotation authority are retained. Boreal Living products, images, policy, users, inventory and supplier acknowledgements are explicitly synthetic. No payment or real supplier order is sent.
 
 ## Included journey
 
 1. Start Docker Desktop with Linux containers and host networking enabled. Open `Start-RoomSell.cmd` on Windows, or run `docker compose up --build` from the repository root.
 2. Wait for READY, then open the local app on port 3000 at `/testing`. Click **Open photo placement demo** for calibrated photograph selling, or enter as Alex, the retailer. No hosted keys, signup or email verification are required.
 3. Inspect the seven products, dimensions, availability, private images and explicit SKU mappings. Change simulated upstream stock and synchronize.
-4. Open Maya's measured room. Move furniture, review Smart Rearrange previews, preserve locks, compare 2D/3D, accept, reload and undo/redo.
-5. In **Client photograph**, upload and calibrate a photo, place actual inventory with immediate model dragging, rotate/remove and accept checked edits. The synthetic example has a known camera and seven dimensioned illustrative models. Review original-object scan selections and a cleaned background without changing the original. The labelled local photo adapter handles only the synthetic fixture. See [PHOTO_SELLING.md](PHOTO_SELLING.md). Existing Design assistance provides catalogue-grounded advice; live photo advice/removal needs OpenAI.
-6. Review configured VAT/delivery and issue an immutable quotation/PDF. Enter as Maya to review, reserve and confirm it.
+4. Open Maya's project directly in the photograph workspace. Upload a photograph, scan visible furniture with human correction, then confirm room dimensions and mark a short measured floor rectangle. The synthetic demo already has a known camera and seven dimensioned illustrative models.
+5. Use **Complete the room** for catalogue additions, chosen-product removals and known photo-region keep/remove advice. The salesperson chooses actual SKUs, clicks their position in the photo, drags/rotates and accepts checked edits. Original-object image removal has its own reviewed background job. Neither advice nor image editing automatically changes the scene. The local adapter handles only the synthetic fixture; live processing needs OpenAI. See [PHOTO_SELLING.md](PHOTO_SELLING.md).
+6. In **Products and budget**, review accepted furniture/positions with the client, tick the review checkbox and click **Confirm design for quotation**. Review VAT/delivery and issue the immutable quotation/PDF. The confirmation is local and resets when its scene/photo/product review changes or the page reloads; issued history remains available. Enter as Maya to review, reserve and confirm an order.
 7. Return as Alex and record fulfilment. The fictional supplier returns a durable acknowledgement; retrying reuses its reference without selling stock twice. Later inventory sync preserves the reduction. Explicit supplier rejection leaves stock intact and permits cancellation; unknown outcomes are held for recovery.
-8. Optionally enter as Leo, build a private consumer design from published offers, compare 2D/3D and approve a selected-retailer enquiry.
+8. Optionally enter as Leo, build a private consumer design from published offers in the separate 3D-only workspace and approve a selected-retailer enquiry.
 9. Sign-in recovery can be tested separately through local captured mail. The real confirmation/recovery backend remains in place; fictional shortcuts do not disable production authentication.
 10. Stop/recreate the app without deleting volumes. The consultation, personas, inventory, supplier ledger and encryption key are retained.
 
@@ -21,7 +21,7 @@ Executed checks and limitations are recorded in VALIDATION.md. Docker was exerci
 
 The following need actual service access and cannot be completed by inventing a supplier:
 
-- **Live OpenAI:** add `ROOMSELL_AI_API_KEY` securely in environment settings (or ignored `.env.trial` on your own computer), enable billing/limits and run one synthetic request. Never paste the key into chat or source.
+- **Live OpenAI:** add `OPENAI_API_KEY` or `ROOMSELL_AI_API_KEY` securely in environment settings (or ignored `.env.trial` on your own computer), enable billing/limits and test scan, recommendations and reviewed removal. Never paste the key into chat or source. A scan cannot guarantee detection of every visible or hidden object.
 - **Managed hosting:** the public Supabase URL and Vercel deployment/project were supplied and recorded in DEPLOYMENT.md. Connect secure service/deployment authority, apply migrations and run the deployment/staging gates. The cloud network proxy currently blocks both targets; the exact-host allowlist update is saved but requires review/save/publish. No live project or website was provisioned or altered by this delivery.
 - **External email:** choose and verify an SMTP sender in Supabase; test confirmation, recovery and expired/replayed links using delivered mail. Local captured-email success does not establish deliverability.
 - **Production operations:** enable managed backups/PITR plus Storage byte backups, decide retention/RPO/RTO, configure alert destinations and run an isolated hosted restore. Local backup/restore is implemented and testable.

@@ -27,13 +27,9 @@ import { measurementGuides, snapToWalls } from '@roomsell/geometry';
 import { RoomControls } from './room-controls';
 import { GroupControls } from './group-controls';
 import { RevisionControls } from './revision-controls';
-import { SceneViewControls, type SceneView } from './scene-view-controls';
+import type { PhotoConsultationStatus, PhotoPlacementRequest } from '../lib/photo-consultation-status';
 import { useEditor } from '../lib/editor-store';
 
-const FloorPlan = dynamic(() => import('./floor-plan'), {
-  ssr: false,
-  loading: () => <div className="canvas-loading">Preparing measured floor plan…</div>,
-});
 const RoomViewer3D = dynamic(() => import('./room-viewer-3d'), {
   ssr: false,
   loading: () => <div className="canvas-loading">Preparing measured 3D room…</div>,
@@ -263,6 +259,10 @@ interface EditorProps {
   title?: string;
   subtitle?: string;
   readOnly?: boolean;
+  photoOnly?: boolean;
+  onPhotoStatusChange?: (status: PhotoConsultationStatus) => void;
+  photoRefreshKey?: number;
+  placementRequest?: PhotoPlacementRequest;
 }
 export function Editor({
   personal = false,
@@ -271,6 +271,10 @@ export function Editor({
   title,
   subtitle,
   readOnly = false,
+  photoOnly = false,
+  onPhotoStatusChange,
+  photoRefreshKey = 0,
+  placementRequest,
 }: EditorProps = {}) {
   const {
     scene,
@@ -289,11 +293,6 @@ export function Editor({
     history,
   } = useEditor();
   const [savedMessage, setSavedMessage] = useState('');
-  const [view, setView] = useState<SceneView>('2d');
-  useEffect(() => {
-    if (projectId && !personal && new URLSearchParams(window.location.search).get('view') === 'photo')
-      setView('photo');
-  }, [projectId, personal]);
   const [comparing, setComparing] = useState<Scene | null>(null);
   useEffect(() => {
     setComparing(null);
@@ -323,7 +322,7 @@ export function Editor({
   const shown = proposal?.scene ?? scene;
   const selected = shown?.objects.find((o) => o.id === selectedId);
   return (
-    <div className="app-shell">
+    <div className={`app-shell${photoOnly ? ' photo-sales-studio' : ''}`} data-photo-only={photoOnly}>
       <header className="topbar">
         <a className="brand" href={projectId ? '/workspace' : '/'} aria-label="RoomSell home">
           <span className="brand-icon">
@@ -362,22 +361,24 @@ export function Editor({
               <Check size={14} />{' '}
               {savedMessage || (scene ? `Saved · revision ${scene.version}` : 'Connecting…')}
             </div>
-            <Button
-              disabled={!scene || busy || Boolean(proposal)}
-              onClick={() => {
-                if (!scene) return;
-                const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob),
-                  anchor = document.createElement('a');
-                anchor.href = url;
-                anchor.download = `roomsell-scene-v${scene.version}.json`;
-                anchor.click();
-                URL.revokeObjectURL(url);
-                setSavedMessage('Scene JSON exported');
-              }}
-            >
-              <CopyCheck size={16} /> Export scene
-            </Button>
+            {!photoOnly && (
+              <Button
+                disabled={!scene || busy || Boolean(proposal)}
+                onClick={() => {
+                  if (!scene) return;
+                  const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob),
+                    anchor = document.createElement('a');
+                  anchor.href = url;
+                  anchor.download = `roomsell-scene-v${scene.version}.json`;
+                  anchor.click();
+                  URL.revokeObjectURL(url);
+                  setSavedMessage('Scene JSON exported');
+                }}
+              >
+                <CopyCheck size={16} /> Export scene
+              </Button>
+            )}
           </div>
         </div>
         <div className="studio-grid">
@@ -407,36 +408,40 @@ export function Editor({
               {!projectId && ' · demo'}
             </div>
             <RoomControls readOnly={readOnly} />
-            <GroupControls readOnly={readOnly} />
-            <div className="section-label">
-              FURNITURE <span>{shown?.objects.length ?? 0} items</span>
-            </div>
-            <div className="furniture-list">
-              {shown?.objects.map((object) => (
-                <button
-                  key={object.id}
-                  data-testid={`select-${object.id}`}
-                  className={`furniture-row ${selectedId === object.id ? 'selected' : ''}`}
-                  onClick={() => select(object.id)}
-                >
-                  <span
-                    className={`furniture-swatch swatch-${object.category}`}
-                    style={{ backgroundColor: object.color }}
-                  />
-                  <span>
-                    <strong>{object.name}</strong>
-                    <small>
-                      {object.dimensions.width.toFixed(2)} × {object.dimensions.depth.toFixed(2)} m
-                    </small>
-                  </span>
-                  {object.locks.position ? (
-                    <LockKeyhole size={14} className="locked-icon" />
-                  ) : (
-                    <ChevronRight size={14} />
-                  )}
-                </button>
-              ))}
-            </div>
+            {!photoOnly && <GroupControls readOnly={readOnly} />}
+            {!photoOnly && (
+              <>
+                <div className="section-label">
+                  FURNITURE <span>{shown?.objects.length ?? 0} items</span>
+                </div>
+                <div className="furniture-list">
+                  {shown?.objects.map((object) => (
+                    <button
+                      key={object.id}
+                      data-testid={`select-${object.id}`}
+                      className={`furniture-row ${selectedId === object.id ? 'selected' : ''}`}
+                      onClick={() => select(object.id)}
+                    >
+                      <span
+                        className={`furniture-swatch swatch-${object.category}`}
+                        style={{ backgroundColor: object.color }}
+                      />
+                      <span>
+                        <strong>{object.name}</strong>
+                        <small>
+                          {object.dimensions.width.toFixed(2)} × {object.dimensions.depth.toFixed(2)} m
+                        </small>
+                      </span>
+                      {object.locks.position ? (
+                        <LockKeyhole size={14} className="locked-icon" />
+                      ) : (
+                        <ChevronRight size={14} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             {!projectId && (
               <div className="relationships">
                 <Layers size={17} />
@@ -459,18 +464,11 @@ export function Editor({
           </aside>
           <section className="canvas-panel panel" aria-label="Room editor">
             <div className="canvas-toolbar">
-              <SceneViewControls
-                view={view}
-                onChange={setView}
-                photoEnabled={Boolean(projectId && !personal)}
-              />
-              <span className="toolbar-divider" />
+              <span className="view-tab">{photoOnly ? 'Client photograph' : '3D room view'}</span>
               <span className="toolbar-hint">
-                {view === '2d'
-                  ? 'Drag to explore · preview before saving'
-                  : view === 'photo'
-                    ? 'Calibrate the photo · drag inventory into the room'
-                    : 'Orbit to inspect · edit with the placement controls'}
+                {photoOnly
+                  ? 'Place catalogue furniture in the client’s room'
+                  : 'Inspect your saved furniture; use the placement controls to edit'}
               </span>
               <div className="history-controls">
                 <Button
@@ -498,51 +496,57 @@ export function Editor({
                 {error || 'Loading your measured room…'}
                 {error && <Button onClick={() => void load()}>Retry</Button>}
               </div>
-            ) : view === 'photo' && projectId ? (
-              <PhotoStudio key={projectId} projectId={projectId} readOnly={readOnly} />
-            ) : view === '3d' ? (
+            ) : photoOnly && projectId && !personal ? (
+              <PhotoStudio
+                key={projectId}
+                projectId={projectId}
+                readOnly={readOnly}
+                onStatusChange={onPhotoStatusChange}
+                refreshKey={photoRefreshKey}
+                placementRequest={placementRequest}
+              />
+            ) : (
               <RoomViewer3D
                 sceneEndpoint={endpoint}
                 productsEndpoint={personal ? `/api/consumer/projects/${projectId}/products` : undefined}
                 projectId={projectId}
                 comparing={comparing}
-                onUnavailable={() => setView('2d')}
               />
-            ) : (
-              <FloorPlan comparing={comparing} readOnly={readOnly} />
             )}
-            <div className="mode-bar">
-              <div>
-                <span className="section-label">EDITING MODE</span>
-                <div className="mode-buttons">
-                  <button
-                    aria-pressed={mode === 'manual'}
-                    className={mode === 'manual' ? 'active' : ''}
-                    disabled={readOnly || busy || Boolean(proposal)}
-                    onClick={() => setMode('manual')}
-                  >
-                    <MousePointer2 size={14} /> Manual
-                  </button>
-                  <button
-                    aria-pressed={mode === 'smart'}
-                    className={mode === 'smart' ? 'active' : ''}
-                    disabled={readOnly || busy || Boolean(proposal)}
-                    onClick={() => setMode('smart')}
-                  >
-                    <Sparkles size={14} /> Smart Rearrange
-                  </button>
+            {!photoOnly && (
+              <div className="mode-bar">
+                <div>
+                  <span className="section-label">EDITING MODE</span>
+                  <div className="mode-buttons">
+                    <button
+                      aria-pressed={mode === 'manual'}
+                      className={mode === 'manual' ? 'active' : ''}
+                      disabled={readOnly || busy || Boolean(proposal)}
+                      onClick={() => setMode('manual')}
+                    >
+                      <MousePointer2 size={14} /> Manual
+                    </button>
+                    <button
+                      aria-pressed={mode === 'smart'}
+                      className={mode === 'smart' ? 'active' : ''}
+                      disabled={readOnly || busy || Boolean(proposal)}
+                      onClick={() => setMode('smart')}
+                    >
+                      <Sparkles size={14} /> Smart Rearrange
+                    </button>
+                  </div>
                 </div>
+                <p>
+                  {readOnly
+                    ? 'View-only project. You can inspect the furniture and its saved revisions.'
+                    : mode === 'smart'
+                      ? 'Move a piece. We’ll find room for the others.'
+                      : 'Move the selected piece or its rigid group. Invalid moves are rejected.'}
+                  <small>Geometry first. Every lock respected.</small>
+                </p>
               </div>
-              <p>
-                {readOnly
-                  ? 'View-only project. You can inspect the plan and its saved revisions.'
-                  : mode === 'smart'
-                    ? 'Move a piece. We’ll find room for the others.'
-                    : 'Move the selected piece or its rigid group. Invalid moves are rejected.'}
-                <small>Geometry first. Every lock respected.</small>
-              </p>
-            </div>
-            {scene && (
+            )}
+            {scene && !photoOnly && (
               <RevisionControls
                 scene={scene}
                 endpoint={endpoint}
@@ -596,21 +600,21 @@ export function Editor({
               <Properties object={selected} demo={!projectId} readOnly={readOnly} />
             ) : (
               <p className="empty-selection">
-                Select furniture in the plan or list to inspect its position and locks.
+                Select furniture in the image or list to inspect its position and locks.
               </p>
             )}
           </aside>
         </div>
         <footer className="page-footer">
           <span>
-            <ShieldCheck size={14} /> Constraint-aware planning · deterministic engine v2
+            <ShieldCheck size={14} /> Measured furniture placement · checked before saving
           </span>
           <span>
             {busy
               ? 'Checking your change…'
               : projectId
-                ? 'Project scene persistence active'
-                : 'Local scene persistence active'}
+                ? 'Design changes saved to this project'
+                : 'Local design changes saved'}
             <ArrowUpRight size={13} />
           </span>
         </footer>

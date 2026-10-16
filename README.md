@@ -1,6 +1,8 @@
 # RoomSell AI
 
-RoomSell has a calibrated client-photograph view and synchronized 2D/3D room views, Supabase accounts and organisation permissions, a retailer catalogue connected to customer projects, configured pricing, immutable quotations/PDFs, private room photographs, checked design assistance, durable jobs/orders, a published-offer consumer marketplace and a custom REST inventory connector. Real projects start empty and use products entered or imported by their retailer. `/demo` provides a separate synthetic bedroom fixture when explicitly enabled with `ROOMSELL_ENABLE_DEMO=1`.
+RoomSell is a salesperson-operated consultation: upload the client's room photograph, review AI object selections, confirm room measurements and a short floor calibration, choose retailer inventory, position products in the photograph, confirm the client's choices, then quote. Retailer projects open directly in the photograph workspace; the visible 2D section has been removed. One metric scene still enforces dimensions, locks and fit. Real projects start empty and use products entered or imported by their retailer.
+
+The application also includes Supabase accounts and organisation permissions, configured pricing, immutable quotations/PDFs, private photographs, checked design assistance, durable jobs/orders, a bounded consumer marketplace and a custom REST inventory connector. Separate legacy demo/personal-room workspaces use a 3D view. `/demo` is enabled only with `ROOMSELL_ENABLE_DEMO=1`.
 
 ## Run locally
 
@@ -37,17 +39,17 @@ If you prefer Node.js 24 on your computer with Docker only for Supabase, `npm ru
 
 1. Open `/workspace`, create an account and organisation, and choose its currency. Local signup signs in immediately; hosted email confirmation needs the provider configuration described in the deployment guide.
 2. As an owner or admin, create real products and variants in Catalogue, or import the documented CSV format. Enter authoritative dimensions, prices, availability, stock and lead times. Upload validated photographs or model files if available.
-3. Create customer contact records and a project with a budget and confirmed room measurements. Open the project, add doors/windows and exclusion areas, and preview furniture from the organisation's catalogue.
-4. Accept a preview to save it. Move and rotate furniture, set independent locks, create rigid groups, compare revisions, and undo/redo. The backend checks geometry, permissions and the current version before committing.
+3. Create a customer contact and project with a budget. Open the project, upload a room photo and scan it using OpenAI or the labelled synthetic adapter. Review missed/incorrect object selections. Confirm measured room dimensions and mark a measured floor rectangle. AI does not establish measurements or guarantee identification of every object.
+4. Use **Complete the room** for catalogue additions, suggested removals of chosen products and keep/remove advice for reviewed photo regions. Choose an actual SKU from a recommendation or **Store inventory**, then click/place, drag or rotate it in the photograph. **Accept layout** saves each checked preview. Original-image cleanup is a separate reviewed background operation; neither AI nor dragging accepts changes automatically.
 5. Invite colleagues or customers through Team. Copy the generated invitation link to the intended recipient. Owners/admins can grant a customer account view or edit access to a particular project; a contact record alone grants no access.
 
-The project product panel shows current catalogue prices and their total against the saved budget. These are live design estimates. Owners/admins configure explicit currency/tax/discount/fee/rounding rules in Pricing. Staff review and issue quotations from accepted measured scenes; issued amounts remain immutable and downloadable as PDF. Quotes check aggregate available stock at issuance. Customers with explicit ordering permission can then reserve/confirm an order; retailer fulfilment preserves immutable quoted prices.
+**Products and budget** shows accepted choices, catalogue prices and the saved budget. Review them with the client, tick **The client has reviewed these furniture choices and positions.**, then click **Confirm design for quotation**. This is a local consultation check, not a saved signature: scene/photo changes, refreshed product details or a reload require review again. New quotation controls are gated by that confirmation; existing issued quotation history remains available. Owners/admins configure explicit tax/discount/fee/rounding rules in Pricing. The server independently rechecks source/version, aggregate stock and exact pricing when issuing immutable quotation/PDF snapshots. Authorised customers can reserve/confirm an order; retailer fulfilment preserves quoted prices.
 
-Switch between 2D floor plan and 3D room view to inspect the same accepted or preview scene. Validated matching models use floor-centred pivots without scaling; missing/incompatible assets use labelled dimension proxies. Placement controls and protected previews still own edits.
+Validated matching models use floor-centred pivots without scaling; missing/incompatible assets use labelled dimension proxies. Photo alignment depends on confirmed measurements and calibration. Retained original furniture needs a measured obstacle footprint to participate in fit checks.
 
 Inventory lets owners/admins configure a public HTTPS custom REST snapshot endpoint and explicit provider-to-variant mappings. A server-only `ROOMSELL_CONNECTOR_ENCRYPTION_KEY` (32 random bytes in base64) is required to save credentials or sync. Configure secrets through deployment settings; never paste them into source. Live retailer integration requires an actual endpoint/feed and token. See [inventory contract](docs/INVENTORY.md).
 
-For the synthetic scenario, open `/demo`, select the bed, keep Smart Rearrange selected, set Z to **3.8** and rotation to **180°**, and preview. Bedside tables and the rug follow their anchor preferences while the fully locked wardrobe stays exact.
+For the main synthetic scenario, open `/testing` and choose **Open photo placement demo**. It has a known calibration, seven illustrative dimensioned product models and a recorded local scan/removal adapter. Follow [photo selling](docs/PHOTO_SELLING.md) from placement through client confirmation and quotation.
 
 ## Validate
 
@@ -76,7 +78,7 @@ The [validation record](docs/VALIDATION.md) records actual results. The [test pl
 - `packages/pricing`: exact configured commercial calculations and validated quotation math.
 - `packages/inventory`: bounded snapshot/mapping contracts and secure HTTPS/encryption adapters.
 - `packages/ui`: accessible shared controls.
-- `apps/web`: Next.js application, React Konva editor, account/workspace flows and authenticated server APIs.
+- `apps/web`: Next.js photograph consultation, shared scene store, 3D adapters, account/workspace flows and authenticated server APIs. Legacy Konva code remains in the repository but is not mounted in the editor UI.
 - `supabase/migrations`: tenant tables, RLS and checked transactional write functions.
 
 Real project scenes, versions, proposals and catalogues persist in PostgreSQL; assets use a private Storage bucket. The unauthenticated synthetic demo keeps its separate atomic local file adapter. That adapter supports one server process and must contain synthetic data only.

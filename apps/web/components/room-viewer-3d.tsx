@@ -180,7 +180,12 @@ export function useProjectModels(
       for (const model of owned) disposeRoomModel(model.scene);
     };
   }, [projectId, signature]);
-  return { resolutions, loaded, catalogueError };
+  return {
+    resolutions,
+    loaded,
+    catalogueError,
+    catalogueReady: Boolean(products) || Boolean(catalogueError),
+  };
 }
 
 function CameraRig({ room, command }: { room: Room; command: CameraCommand }) {
@@ -350,7 +355,8 @@ function ObjectOutline({
   }, [object.dimensions.width, object.dimensions.height, object.dimensions.depth]);
   useEffect(() => () => edges.dispose(), [edges]);
   return (
-    <lineSegments geometry={edges} position={[0, object.dimensions.height / 2, 0]}>
+    // Selection decoration must never intercept picking of the furniture behind it.
+    <lineSegments geometry={edges} position={[0, object.dimensions.height / 2, 0]} raycast={() => undefined}>
       <lineBasicMaterial color={color} transparent opacity={opacity} depthTest={false} />
     </lineSegments>
   );
@@ -421,10 +427,10 @@ function WebGLFallback({ onUnavailable }: { onUnavailable?: () => void }) {
     <div className="room-3d-fallback" role="status">
       <strong>3D is unavailable in this browser.</strong>
       <p>
-        Your measured scene is preserved. Use the 2D floor plan to inspect and edit it, or enable browser
-        WebGL support.
+        Your saved furniture is preserved. You can use the furniture list and placement controls, or enable
+        browser WebGL support.
       </p>
-      {onUnavailable && <Button onClick={onUnavailable}>Return to 2D floor plan</Button>}
+      {onUnavailable && <Button onClick={onUnavailable}>Review furniture</Button>}
     </div>
   );
 }
@@ -606,8 +612,8 @@ function MeasuredViewer({
       <div className="room-3d-status" aria-label="3D dimension and model status">
         <p>
           {preview ? 'Checked preview' : `Accepted revision ${scene.version}`} · {scene.room.width} ×{' '}
-          {scene.room.depth} × {scene.room.height} m. Selection follows the 2D editor; move furniture with the
-          placement controls.
+          {scene.room.depth} × {scene.room.height} m. Selection follows the furniture list; move furniture
+          with the placement controls.
         </p>
         <p>
           {modelCount} validated model{modelCount === 1 ? '' : 's'} · {scene.objects.length - modelCount}{' '}

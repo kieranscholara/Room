@@ -1,5 +1,15 @@
 # Architecture decision proposals
 
+## D-PHOTO-CONSULTATION — salesperson-operated photo-only workflow (16 October 2026)
+
+**Accepted direction:** The owner explicitly removed the need for a visible 2D section and confirmed that the salesperson operates the app with the client, retaining a short measured floor calibration. This supersedes earlier keep-2D user-interface requirements; it does not authorise removing canonical metric validation.
+
+**Decision:** Open retailer projects directly in the photograph workspace and use 3D only for legacy demo/personal rooms. Stop mounting the old Konva adapter while preserving scene v2, pure geometry/layout, locks, tenant access and checked preview/accept. Guide upload/scan/measurement, catalogue-grounded completion, explicit SKU placement and client review before quote. Advice can propose removal of existing scene objects and keep/remove actions for known reviewed photo regions; image cleanup remains a separately accepted background edit. No new dependency or migration is required.
+
+**Review boundary:** Bind a local design-confirmation checklist to the current scene, photo revision and loaded chosen-product details. Invalidate it on change or reload. Gate new quotation controls while retaining issued history and all existing backend source/version, price/stock and permission checks. This does not create a persisted customer signature or alter quotation authority.
+
+**Tradeoff/acceptance:** A single photo cannot establish all objects, depth or exact measurements. Keep human detection review, measured calibration/obstacles and model/proxy labels. Validate photo-only consultation, SKU choice, lock/collision preservation, stale advice/review and quotation history. Live OpenAI and real retailer/physical-room acceptance remain separate gates. Executed results belong in VALIDATION.md.
+
 ## ADR-005 — Durable supplier acknowledgement before externally managed fulfilment
 
 **Accepted scope:** The user's 16 October 2026 request authorizes completing the local MVP with a fictional supplier. Retain the existing order service/database and add an optional custom REST fulfilment contract. No new package dependency or provider-native API is required.

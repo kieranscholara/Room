@@ -69,10 +69,12 @@ export function ProjectQuotations({
   projectId,
   organisationId,
   role,
+  canPrepareQuote = true,
 }: {
   projectId: string;
   organisationId: string;
   role: OrganisationRole;
+  canPrepareQuote?: boolean;
 }) {
   const { scene, endpoint, proposal, busy: sceneBusy } = useEditor();
   const current = endpoint === `/api/projects/${projectId}/scene` ? scene : null;
@@ -107,8 +109,9 @@ export function ProjectQuotations({
   useEffect(() => {
     setPreview(null);
     setIssueKey(null);
-  }, [current?.version, current?.id]);
-  const canReview = staff && current && current.objects.length > 0 && !proposal && !sceneBusy && pricing;
+  }, [current?.version, current?.id, canPrepareQuote]);
+  const canReview =
+    canPrepareQuote && staff && current && current.objects.length > 0 && !proposal && !sceneBusy && pricing;
   const chosen = quotes.find((quote) => quote.id === selected);
   return (
     <section className="account-panel" aria-label="Project quotations">
@@ -132,11 +135,16 @@ export function ProjectQuotations({
           )}
         </p>
       )}
+      {staff && !canPrepareQuote && (
+        <p className="account-notice">
+          Confirm the client’s chosen furniture and positions above before preparing a new quotation.
+        </p>
+      )}
       {staff && (
         <Button
           disabled={!canReview || busy}
           onClick={async () => {
-            if (!current || !pricing) return;
+            if (!current || !pricing || !canPrepareQuote) return;
             setBusy(true);
             setError('');
             setPreview(null);
@@ -161,7 +169,7 @@ export function ProjectQuotations({
       <Button disabled={busy} onClick={() => void load()}>
         Refresh quotations and pricing
       </Button>
-      {preview && (
+      {preview && canPrepareQuote && preview.source.sceneVersion === current?.version && (
         <div role="region" aria-label="Quotation preview">
           <h3>Review quotation · design revision {preview.source.sceneVersion}</h3>
           <QuoteAmounts calculation={preview.calculation} />
@@ -182,7 +190,7 @@ export function ProjectQuotations({
               current?.version !== preview.source.sceneVersion
             }
             onClick={async () => {
-              if (!issueKey) return;
+              if (!issueKey || !canPrepareQuote || current?.version !== preview.source.sceneVersion) return;
               setBusy(true);
               setError('');
               try {

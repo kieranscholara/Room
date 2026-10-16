@@ -1,41 +1,55 @@
 # Photo-first selling
 
-This is the single-photograph workflow requested by the product owner. The existing measured 2D editor is retained. A photograph is a calibrated view of the same scene, not a second furniture database.
+The salesperson operates RoomSell with the client. Retailer projects open directly in the client's photograph; the 2D section is no longer visible. Product positions, dimensions, locks and fit checks still use one metric scene. Legacy demo and personal-room workspaces show 3D only.
 
-## Try the fictional example in Docker
+## Start with the fictional retailer
 
-1. Download the latest `roomsell/bedroom-editor-milestone` branch and open its folder.
-2. Start Docker Desktop with Linux containers and host networking enabled, then run `docker compose up --build`. Wait for **READY**. The existing trial volume and saved designs are preserved.
-3. On your computer, open `http://localhost:3000/testing` and click **Open photo placement demo**. No signup or API key is needed.
-4. The labelled synthetic measurement image is pre-calibrated. The original photorealistic fictional bedroom remains available in the photograph selector, but has no claimed measurement ground truth. Its calibration must be marked manually.
-5. Drag an available store item onto the floor in the image, or click **Place …** and then click a floor position. A checked preview appears. Click **Accept layout** to save, or **Discard**.
-6. Grab a product model to move it immediately, rotate it with **Rotate selected furniture** or use the existing exact placement controls, and remove it with **Remove selected furniture**. Each finished edit uses the existing checked preview/accept workflow. Locks, collisions, groups and catalogue checks remain enforced.
-7. Switch to **2D floor plan** and **3D room view**. They show the same accepted or preview objects. Reloading restores saved placement and photograph calibration.
-8. For original furniture removal, choose **Local fixture adapter · synthetic demo only**, click **Scan room photograph**, **Use detected selections**, set the chest action to **Remove from photograph**, then **Save reviewed selections**. Click **Remove reviewed areas from photo**, review its preview and click **Use cleaned photograph**. The Docker trial runs the worker automatically. **Show original photo** and **Restore original background** retain access to the original.
+1. In the existing Git checkout, run `git pull --ff-only`, then `docker compose up -d --build`. Wait for **READY** in `docker compose logs -f app`. Keep the existing Docker volumes.
+2. On your computer open `http://localhost:3000/testing` and click **Open photo placement demo**. No signup or API key is needed.
+3. The labelled synthetic room has a known camera calibration. Seven fictional product models have exact catalogue bounds; their appearance is illustrative, not a manufacturer's representation. The separate generated photorealistic bedroom has no claimed calibration ground truth.
+4. Follow the consultation links: **Upload, scan and measure**, **Complete the room**, **Choose and position furniture**, then **Confirm and quote**.
 
-The seven GLB assets are simple illustrative fictional products with exact catalogue bounds. They are not manufacturer models or photorealistic representations. The local scan/removal adapter uses a recorded selection and known empty synthetic image; it never claims to analyse arbitrary customer photographs.
+## Upload, scan and measure
 
-## Use an actual client photograph
+1. For a new consultation, create a contact/project and budget, then open the project as retailer staff. Use **Upload photo** and choose it under **Client room photograph**. Use an ordinary undistorted still photograph with its original aspect ratio; avoid panoramas, fisheye and perspective-corrected images.
+2. Under **Existing furniture in the photograph**, choose the provider. For the supplied synthetic image choose **Local fixture adapter · synthetic demo only**. For other images use configured **OpenAI · live photograph processing** and give explicit consent.
+3. Click **Scan room photograph**, wait, then **Use detected selections**. Review the labels and approximate rectangles; add or correct missed/partly hidden objects. A single photograph cannot reveal every object or establish exact room measurements.
+4. Choose **Keep in photograph** or **Remove from photograph**, then **Save reviewed selections**. These choices describe image areas; they do not silently change catalogue objects or physical obstacles.
+5. In **Room essentials**, enter and confirm the measured room width, depth and height. Measure a visible rectangular floor patch and enter its room X/Z origin, width and depth. Mark its four corners clockwise: origin, along width, opposite, along depth. A partial-room patch is supported.
+6. Click **Save photo calibration**. Crossed, degenerate or inconsistent points are rejected. Room dimension changes invalidate calibration. Inspect alignment: calibration residual measures consistency, not certified measurement accuracy.
+7. A retained original object blocks new furniture only after its footprint is measured. Under **Confirm an existing object's physical footprint**, enter its X/Z and size, preview the obstacle and accept it. Manage/remove existing obstacles in **Room essentials**.
 
-1. Open the client project as a salesperson. Confirm the measured room width, depth and height in **Room essentials**. Measure a visible rectangular patch on the floor; its origin and dimensions use the room's X/Z coordinates.
-2. Select **Client photograph → Upload photo**. Use an ordinary undistorted photograph; avoid panoramas, fisheye or perspective-corrected images. Keep the original camera aspect ratio.
-3. Mark the four visible floor corners clockwise: origin, along width, opposite, along depth. Enter the rectangle's measured X/Z origin, width and depth. A partial-room rectangle is supported when the whole floor is not visible.
-4. Click **Save photo calibration** and inspect floor alignment. Invalid, crossed, degenerate or inconsistent points are rejected. Changes to room dimensions invalidate the calibration. The residual measures consistency of the four marks; it does not certify a real room measurement.
-5. Place actual inventory as above. Product dimensions and saved coordinates stay authoritative. Visual alignment depends on the photo, manual measurements and calibration; confirm critical clearances physically before promising fit.
-6. Original furniture visible in the image is not automatically collision geometry. For a retained item, expand **Confirm an existing object's physical footprint**, enter measured X/Z and footprint, preview the obstacle and accept it. Existing obstacle zones are managed in Room essentials. Deleting pixels never silently deletes a physical obstacle or a purchased SKU.
-7. For live scanning/removal, configure an OpenAI key securely in the app/worker environment. The Docker trial supports an ignored `.env.trial` file with `OPENAI_API_KEY=…`; never commit it or paste it into chat. Optionally set `ROOMSELL_AI_MODEL` (default `gpt-4.1-mini`) and `ROOMSELL_IMAGE_MODEL` (default `gpt-image-1`). Recreate the app with `docker compose up --build`. The account needs model access and billing.
-8. Choose **OpenAI · live photograph processing**, explicitly consent to sending the selected image, then scan and review all areas before removal. Manual selections work independently of scanning. Removal is a background image edit, not an AI request on every drag. Review reconstruction before using it.
-9. The existing **Design assistance** panel can use consented room photographs as visual context and recommend only this retailer's available, authorised catalogue candidates within the budget. It independently checks SKU, stock, prices, policy and geometry. The salesperson chooses placement; AI does not infer trusted room measurements.
+## Complete the room and choose inventory
 
-## Implemented boundaries
+1. Open **Complete the room**. Select a provider, enter the client's brief and budget preferences, and select the relevant photograph with consent where applicable. Submit **Request design assistance**.
+2. Review the result. Additions reference current retailer variants/SKUs; quantity, availability, commercial budget, scene version and permissions are checked. Advice cannot invent inventory, dimensions or prices.
+3. **Preview removal of …** proposes removal of an existing chosen catalogue object. Review and **Accept layout** to commit it; locked objects remain protected.
+4. For existing photo-region suggestions, select the advice you agree with and click **Save reviewed photo choices**. Only known reviewed selections can be changed. A suggested removal marks an area; it does not perform image cleanup automatically.
+5. Click **Choose … for photograph** on a recommendation, then click the intended floor position in the photo. Alternatively find a variant in **Store inventory**, drag its card onto the floor, or click **Place …** then the floor. The recommendation button does not choose an arbitrary placement for the client.
 
-- Pinhole camera with centred principal point and square pixels, recovered from four coplanar metric correspondences. Product meshes are never stretched to fit a photo. Unsupported/missing product models are clearly labelled measured boxes.
-- Photo calibration and reviewed regions are saved separately in revisioned `photo_workspaces`. The metre scene remains v2. Private reference bytes retain project access controls.
-- Scan output contains labels and approximate rectangles only. It cannot assign SKUs, measurements or locks. Rectangular foreground areas are an explicit manual visual aid; there is no automatic depth map or silhouette segmentation.
-- Cleanup uses a square letterboxed source/mask for the provider. Only selected pixels are composited back into an original-size PNG. The original file is immutable. Generated files stay private and require a completed job for the exact source workspace revision before application.
-- Jobs share actor/tenant AI quotas, durable deduplication, current permission checks and leased completion. Live vision has a 40-second request deadline and image editing 45 seconds; provider latency can fail/retry. Local drag rendering does not depend on either call.
-- There is no live camera/AR feed, automatic room measurement, guaranteed photorealism, automatic foreground segmentation or automatic removal from a physical room. This is a bounded still-photo selling MVP.
+## Position furniture in the photo
 
-## Verification
+1. Drag an unlocked product model to move it immediately. Release to obtain the authoritative checked preview. **Accept layout** saves, or **Discard** returns to the saved design.
+2. Select the product by model or name; use **Rotate selected furniture** or **Remove selected furniture**, then accept the checked preview. These controls affect added catalogue objects, not pixels in the original image.
+3. Collisions, room bounds, openings, measured obstacles, catalogue identity and locks remain enforced. Product geometry is never stretched to fit the photo. Missing/incompatible models are clearly labelled measured boxes.
+4. Saved positions and calibration survive reload. Visual alignment depends on the photograph, manual measurements and calibration; confirm critical clearances physically before promising fit.
 
-Camera recovery/inverse projection, drag-plane projection, non-stretched fictional models, strict provider schemas, unchanged pixels outside selections, tenant/CAS/cleanup authority and real browser journeys are automated. See [VALIDATION.md](VALIDATION.md) for executed results. Live OpenAI account/model quality and a physically measured client room remain external acceptance checks; no credentials were supplied to this environment.
+To remove original furniture from the photograph, save its reviewed **Remove from photograph** selection, then click **Remove reviewed areas from photo**. Wait for the background job, inspect the preview and click **Use cleaned photograph**. **Show original photo** and **Restore original background** preserve access to the source. Only reviewed pixel areas are replaced; surrounding pixels stay unchanged. Remove a measured physical obstacle separately if that furniture will actually leave the room.
+
+## Confirm and quote
+
+1. Accept or discard every open preview. In **Products and budget**, review the saved products, dimensions, prices and positions with the client. **Review … in photograph** selects a product; **Refresh product prices and assets** refreshes catalogue details.
+2. Tick **The client has reviewed these furniture choices and positions.**, then click **Confirm design for quotation**. A loaded, calibrated photo, confirmed room dimensions and available non-stale priced products are required.
+3. Click **Review quotation**, inspect taxes/delivery/installation and issue the reviewed quotation. Download its PDF from the issued history.
+4. Confirmation belongs to this open consultation; it is not a persisted customer signature or legal acceptance. Furniture/scene changes, selected photo or photo-revision changes, refreshed product details, an open preview or reload require another confirmation. Existing issued quotations remain accessible independently.
+5. Server quotation source/version, stock, permissions and exact pricing checks remain authoritative. The local review gate adds a sales step and does not replace them. Existing order/reservation and fictional supplier testing remains in [TEST_CUSTOMER.md](TEST_CUSTOMER.md).
+
+## OpenAI and implementation limits
+
+For Docker, put `OPENAI_API_KEY=…` in an ignored `.env.trial` beside `compose.yaml`, then recreate with `docker compose up -d --build`. Never commit or share the key. The account needs billing/model access. Optional model settings are `ROOMSELL_AI_MODEL` (default `gpt-4.1-mini`) and `ROOMSELL_IMAGE_MODEL` (default `gpt-image-1`). The app/worker also accepts `ROOMSELL_AI_API_KEY`.
+
+The local adapter uses registered fixture pixels, recorded selections and a known empty synthetic image. It does not analyse arbitrary photographs. Live scanning/removal is asynchronous and can incur charges; dragging is local and never calls OpenAI per movement. Vision/image request deadlines are bounded; provider timeouts can retry or fail.
+
+Calibration assumes a pinhole camera with centred principal point and square pixels. There is no live camera/AR, automatic room measurement, guaranteed photorealism, automatic depth/silhouette segmentation or guaranteed detection of all objects. Manual rectangular foreground areas are visual aids. Accurate-looking products require appropriate retailer models; a generic box is a dimension proxy.
+
+`photo_workspaces` holds separately revisioned calibration/selections/background while scene v2 remains canonical. Current project authority, CAS, shared AI quotas, durable leases and exact completed-source revision guard processing/application. Scene and image edits always require explicit human action. Executed checks belong in [VALIDATION.md](VALIDATION.md); live provider quality and a physically measured client room remain external acceptance gates.

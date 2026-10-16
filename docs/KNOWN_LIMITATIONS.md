@@ -4,6 +4,10 @@
 
 The current increments supersede older missing-feature statements below. Private references, bounded AI/OpenAI transport, durable jobs, reservation/order lifecycle, optional idempotent supplier acknowledgement, password recovery and owned consumer publication/enquiry are implemented locally. Live OpenAI, real retailer provider acceptance, managed projects/SMTP/alerts/hosted restore remain unconfigured. Snapshot-only stock providers cannot fulfil orders without configuring the supported acknowledgement contract. One supplier connection per order is supported; an unknown outcome remains held for idempotent recovery. No payments, billing, shipping, global marketplace search/moderation or 3D mesh editing is included. Hosted request-size limits and commercial retention need deployment acceptance. See CURRENT_STATE.md and DEPLOYMENT.md for current evidence and operating limits.
 
+Retailer projects now open directly in a salesperson-operated photograph consultation; the visible 2D section is removed. Legacy demo/personal rooms use 3D only. Scene geometry remains metric and authoritative. AI scans approximate visible areas for human correction; it cannot guarantee all-object detection, automatic dimensions, depth or photorealistic product appearance. Photo alignment needs measured floor calibration and suitable product models; retained original furniture needs a measured obstacle footprint for collision checks.
+
+Client design confirmation before a new quotation is a local session checklist bound to the scene/photo/product review. It resets after relevant changes or reload and is not a saved signature or server authorisation. Backend issuance independently checks source/version, permissions, prices and stock. See [PHOTO_SELLING.md](PHOTO_SELLING.md).
+
 ## Earlier checkpoint limitations (historical)
 
 - Architecture roadmap steps 1–4 are implemented; actual retailer feed configuration, hosted production rollout, room references, AI, reservations/orders, marketplace, billing and durable workers remain future work.

@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { BoxGeometry, PerspectiveCamera, Vector3 } from 'three';
+import { BoxGeometry } from 'three';
 import type { CatalogueProduct, ProductInput } from '@roomsell/catalogue';
 import type { Scene, SceneObject } from '@roomsell/scene-core';
+import { calibratePhoto, projectPhotoPoint, type PhotoCalibration } from '@roomsell/geometry';
+import { uploadCalibratedPhoto } from './photo-helpers';
 
 // These flags select Chromium's software WebGL implementation in headless CI.
 // They affect only this renderer acceptance suite.
@@ -188,92 +190,97 @@ async function setupProject(page: Page, withModel: boolean) {
       ).status(),
     ).toBe(200);
   }
-  return { projectId: project.id as string, objects, modelAssetId };
+  const photo = await uploadCalibratedPhoto(page.request, project.id);
+  return {
+    projectId: project.id as string,
+    objects,
+    modelAssetId,
+    calibration: photo.workspace.calibration as PhotoCalibration,
+  };
 }
 
-test('real validated GLB, proxy geometry, selection and revisions stay synchronized across 2D and 3D', async ({
+async function dragFurniture(
+  page: Page,
+  calibration: PhotoCalibration,
+  from: { x: number; y: number; z: number },
+  to: { x: number; y: number; z: number },
+) {
+  const pose = calibratePhoto(calibration);
+  const start = projectPhotoPoint(pose, from),
+    end = projectPhotoPoint(pose, to);
+  const stage = page.locator('.photo-stage');
+  await stage.scrollIntoViewIfNeeded();
+  const box = (await stage.boundingBox())!;
+  await page.mouse.move(box.x + start.x * box.width, box.y + start.y * box.height);
+  await page.mouse.down();
+  await page.mouse.move(box.x + end.x * box.width, box.y + end.y * box.height, { steps: 8 });
+  await page.mouse.up();
+}
+
+test('validated original-size GLB and labelled proxy render and select in the photo while revisions remain authoritative', async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  const { projectId, objects } = await setupProject(page, true);
+  const { projectId, objects, calibration, modelAssetId } = await setupProject(page, true);
   const initial = await apiScene(page, projectId);
   await page.goto(`/projects/${projectId}`);
-  await expect(page.getByRole('button', { name: '2D floor plan', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await page.getByRole('button', { name: '3D room view', exact: true }).click();
-  const viewer = page.getByTestId('room-3d-viewer');
-  await expect(viewer).toHaveAttribute('data-ready', 'true');
-  const model = viewer.locator(`[data-object-id="${objects[0].id}"]`);
-  const proxy = viewer.locator(`[data-object-id="${objects[1].id}"]`);
+  await expect(page.getByRole('button', { name: '2D floor plan', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '3D room view', exact: true })).toHaveCount(0);
+  const viewer = page.getByTestId('photo-studio');
+  await expect(viewer).toHaveAttribute('data-calibrated', 'true');
+  await expect(page.getByTestId('photo-model-status')).toHaveAttribute('data-ready', 'true');
+  const model = page.getByTestId(`photo-object-${objects[0].id}`);
+  const proxy = page.getByTestId(`photo-object-${objects[1].id}`);
   await expect(model).toHaveAttribute('data-render-kind', 'model');
+  await expect(model).toHaveAttribute('data-asset-id', modelAssetId);
   await expect(proxy).toHaveAttribute('data-render-kind', 'proxy');
-  await expect(viewer.getByLabel('3D dimension and model status')).toContainText(
-    '1 validated model · 1 dimension proxy',
+  await expect(page.getByTestId('photo-model-status')).toContainText(
+    '1 loaded catalogue model · 1 measured box placeholder',
   );
   await expect(model).toHaveAttribute('data-yaw', '0.37');
-  await page.getByRole('button', { name: 'Select Proxy retailer desk in 3D', exact: true }).click();
-  await expect(page.getByRole('spinbutton', { name: 'X position (m)', exact: true })).toHaveValue('4.6');
+  await proxy.click();
+  await expect(proxy).toHaveAttribute('aria-pressed', 'true');
   // Raycast a known world point into the real canvas, exercising mesh selection.
-  const canvas = page.getByTestId('room-3d-canvas');
-  const box = (await canvas.boundingBox())!;
-  const camera = new PerspectiveCamera(45, box.width / box.height, 0.01, 200);
-  camera.position.set(7.8, 5.4, 7.9);
-  camera.lookAt(new Vector3(3, 0.3, 2.5));
-  camera.updateMatrixWorld();
-  const point = new Vector3(2, 0.5, 2).project(camera);
-  await canvas.click({
-    position: { x: ((point.x + 1) * box.width) / 2, y: ((1 - point.y) * box.height) / 2 },
-  });
+  await dragFurniture(page, calibration, { x: 2, y: 0.5, z: 2 }, { x: 2, y: 0.5, z: 2 });
   await expect(model).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('spinbutton', { name: 'X position (m)', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: 'Zoom in 3D', exact: true }).click();
-  await page.getByRole('button', { name: 'Fit 3D room', exact: true }).click();
-  await page.getByRole('button', { name: 'Refresh 3D models', exact: true }).click();
-  await expect(model).toHaveAttribute('data-render-kind', 'model');
+  await expect(page.getByRole('button', { name: 'Rotate selected furniture', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Remove selected furniture', exact: true })).toBeDisabled();
   expect(await apiScene(page, projectId)).toEqual(initial);
-  await page.getByRole('button', { name: 'Select Proxy retailer desk in 3D', exact: true }).click();
-  await page.getByRole('button', { name: 'Manual', exact: true }).click();
-  await page.getByRole('spinbutton', { name: 'Z position (m)', exact: true }).fill('3.5');
-  await page.getByRole('spinbutton', { name: 'Rotation (degrees)', exact: true }).fill('90');
-  await page.getByRole('button', { name: 'Preview placement', exact: true }).click();
+  // Grab the visible top surface, so the pointer's drag plane is the known 0.7 m height.
+  await dragFurniture(page, calibration, { x: 4.6, y: 0.7, z: 4.1 }, { x: 4.3, y: 0.7, z: 3.5 });
   await expect(viewer).toHaveAttribute('data-preview', 'true');
-  await expect(proxy).toHaveAttribute('data-z', '3.5');
-  await expect(proxy).toHaveAttribute('data-yaw', String(Math.PI / 2));
+  await expect.poll(async () => Number(await proxy.getAttribute('data-z'))).toBeCloseTo(3.5, 1);
   expect(await apiScene(page, projectId)).toEqual(initial);
-  await page.getByRole('button', { name: '2D floor plan', exact: true }).click();
-  await expect(page.getByRole('spinbutton', { name: 'Z position (m)', exact: true })).toHaveValue('3.5');
-  await page.getByRole('button', { name: '3D room view', exact: true }).click();
-  await expect(viewer).toHaveAttribute('data-preview', 'true');
   await page.getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(proxy).toHaveAttribute('data-z', '4.1');
-  await expect(page.getByRole('spinbutton', { name: 'Z position (m)', exact: true })).toHaveValue('4.1');
-  await page.getByRole('spinbutton', { name: 'Z position (m)', exact: true }).fill('3.5');
-  await page.getByRole('spinbutton', { name: 'Rotation (degrees)', exact: true }).fill('90');
-  await page.getByRole('button', { name: 'Preview placement', exact: true }).click();
+  await dragFurniture(page, calibration, { x: 4.6, y: 0.7, z: 4.1 }, { x: 4.3, y: 0.7, z: 3.5 });
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
   await expect(viewer).toHaveAttribute('data-scene-version', '3');
+  await page.getByRole('button', { name: 'Rotate selected furniture', exact: true }).click();
+  await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
+  await expect(viewer).toHaveAttribute('data-scene-version', '4');
   const accepted = await apiScene(page, projectId);
-  expect(accepted.objects.find((object) => object.id === initial.objects[1].id)?.transform).toMatchObject({
-    z: 3.5,
-    rotation: Math.PI / 2,
-  });
+  const transform = accepted.objects.find((object) => object.id === initial.objects[1].id)!.transform;
+  expect(transform.z).toBeCloseTo(3.5, 1);
+  expect(transform.rotation).toBeCloseTo(Math.PI / 2, 5);
   expect(accepted.objects[0]).toEqual(initial.objects[0]);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(proxy).toHaveAttribute('data-z', '4.1');
+  await expect(proxy).toHaveAttribute('data-yaw', '0');
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
-  await expect(proxy).toHaveAttribute('data-z', '3.5');
-  await page.getByText('Compare saved layouts', { exact: true }).click();
-  await page.getByRole('combobox', { name: 'Compare with revision' }).selectOption('2');
-  await expect(viewer).toContainText('Purple outlines compare saved revision 2.');
-  await page.screenshot({ path: 'test-results/room-viewer-3d.png', fullPage: true });
+  await expect(proxy).toHaveAttribute('data-yaw', String(Math.PI / 2));
+  await page.reload();
+  await expect(page.getByTestId('photo-model-status')).toHaveAttribute('data-ready', 'true');
+  await expect(model).toHaveAttribute('data-render-kind', 'model');
+  await expect(proxy).toHaveAttribute('data-z', String(transform.z));
+  await page.screenshot({ path: 'test-results/room-photo-models.png', fullPage: true });
   expect((await apiScene(page, projectId)).objects[0]).toEqual(initial.objects[0]);
   expect(errors).toEqual([]);
 });
 
-test('WebGL failure offers the working 2D editor without changing saved furniture', async ({ page }) => {
+test('WebGL failure preserves the original photograph and saved furniture without exposing a 2D editor', async ({
+  page,
+}) => {
   const { projectId } = await setupProject(page, false);
   const before = await apiScene(page, projectId);
   await page.addInitScript(() => {
@@ -288,14 +295,9 @@ test('WebGL failure offers the working 2D editor without changing saved furnitur
     } as typeof getContext;
   });
   await page.goto(`/projects/${projectId}`);
-  await expect(page.locator('canvas')).toHaveCount(1);
-  await page.getByRole('button', { name: '3D room view', exact: true }).click();
-  await expect(page.getByText('3D is unavailable in this browser.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Return to 2D floor plan', exact: true }).click();
-  await expect(page.getByRole('button', { name: '2D floor plan', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(page.locator('canvas')).toHaveCount(1);
+  await expect(page.getByText(/Photo furniture rendering requires WebGL/)).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Client room photograph', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '2D floor plan', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Return to 2D floor plan', exact: true })).toHaveCount(0);
   expect(await apiScene(page, projectId)).toEqual(before);
 });

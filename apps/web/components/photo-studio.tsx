@@ -23,6 +23,7 @@ import { isCatalogueVariantAvailable } from '@roomsell/catalogue';
 import { Button, Field } from '@roomsell/ui';
 import { useEditor } from '../lib/editor-store';
 import type { PhotoWorkspace } from '../lib/photo-contract';
+import type { PhotoConsultationStatus, PhotoPlacementRequest } from '../lib/photo-consultation-status';
 import { accountRequest } from './workspace-frame';
 import type { CatalogueProduct } from './workspace-business-types';
 import { formatMoney } from './workspace-business-types';
@@ -34,6 +35,11 @@ interface Reference {
   id: string;
   name: string;
   url: string;
+}
+interface PhotoRenderStatus {
+  sceneId: string;
+  canvasReady: boolean;
+  objects: Record<string, { kind: 'model' | 'proxy'; assetId?: string }>;
 }
 function CalibratedCamera({ pose }: { pose: PhotoCamera }) {
   const { camera, invalidate } = useThree();
@@ -75,39 +81,77 @@ function PhotoFurniture({
   scene,
   pose,
   onStart,
+  onRenderStatusChange,
 }: {
   projectId: string;
   scene: Scene;
   pose: PhotoCamera;
   onStart: (object: SceneObject, event: globalThis.PointerEvent, height: number) => void;
+  onRenderStatusChange: (status: PhotoRenderStatus) => void;
 }) {
   const { selectedId, select } = useEditor(),
-    { resolutions, loaded } = useProjectModels(projectId, scene, 0);
+    { resolutions, loaded, catalogueError, catalogueReady } = useProjectModels(projectId, scene, 0);
+  const [canvasReady, setCanvasReady] = useState(false);
+  const modelsReady =
+    catalogueReady &&
+    scene.objects.every((object) => {
+      const resolution = resolutions.get(object.id);
+      return (
+        resolution?.kind === 'proxy' || (resolution?.kind === 'model' && loaded.has(resolution.asset.id))
+      );
+    });
+  const renderStatus = useMemo<PhotoRenderStatus>(
+    () => ({
+      sceneId: scene.id,
+      canvasReady: canvasReady && modelsReady,
+      objects: Object.fromEntries(
+        scene.objects.map((object) => {
+          const resolution = resolutions.get(object.id);
+          const model = resolution?.kind === 'model' && loaded.get(resolution.asset.id)?.model;
+          return [
+            object.id,
+            model && resolution?.kind === 'model'
+              ? { kind: 'model', assetId: resolution.asset.id }
+              : { kind: 'proxy' },
+          ];
+        }),
+      ),
+    }),
+    [scene, resolutions, loaded, canvasReady, modelsReady],
+  );
+  useEffect(() => onRenderStatusChange(renderStatus), [onRenderStatusChange, renderStatus]);
+  useEffect(
+    () => () => onRenderStatusChange({ sceneId: scene.id, canvasReady: false, objects: {} }),
+    [onRenderStatusChange, scene.id],
+  );
+  const modelCount = Object.values(renderStatus.objects).filter((item) => item.kind === 'model').length;
   return (
     <>
       <p
         className="photo-proxy-note"
         data-testid="photo-model-status"
-        data-ready={scene.objects.every((o) => {
-          const r = resolutions.get(o.id);
-          return r?.kind === 'model' && Boolean(loaded.get(r.asset.id)?.model);
-        })}
+        data-ready={canvasReady && modelsReady}
         style={{ position: 'absolute', bottom: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}
       >
-        {[...resolutions.values()].filter((r) => r.kind === 'model').length} catalogue model references ·{' '}
-        {
-          scene.objects.filter((o) => {
-            const r = resolutions.get(o.id);
-            return r?.kind !== 'model' || !loaded.get(r.asset.id)?.model;
-          }).length
-        }{' '}
-        measured box placeholders. Fictional models are illustrative.
+        {modelCount} loaded catalogue {modelCount === 1 ? 'model' : 'models'} ·{' '}
+        {scene.objects.length - modelCount} measured box{' '}
+        {scene.objects.length - modelCount === 1 ? 'placeholder' : 'placeholders'}. Fictional models are
+        illustrative.
+        {catalogueError ? ` ${catalogueError}` : ''}
+        {[...loaded.values()].some((item) => item.error)
+          ? ' A model could not be loaded; its measured box is shown.'
+          : ''}
       </p>
       <Canvas
         frameloop="demand"
         dpr={[1, 2]}
         gl={{ alpha: true, antialias: true }}
         camera={{ near: 0.01, far: 200 }}
+        onCreated={({ gl }) => {
+          setCanvasReady(true);
+          gl.domElement.addEventListener('webglcontextlost', () => setCanvasReady(false));
+          gl.domElement.addEventListener('webglcontextrestored', () => setCanvasReady(true));
+        }}
       >
         <CalibratedCamera pose={pose} />
         <ambientLight intensity={1.8} />
@@ -137,7 +181,19 @@ function PhotoFurniture({
     </>
   );
 }
-export default function PhotoStudio({ projectId, readOnly }: { projectId: string; readOnly: boolean }) {
+export default function PhotoStudio({
+  projectId,
+  readOnly,
+  onStatusChange,
+  refreshKey = 0,
+  placementRequest,
+}: {
+  projectId: string;
+  readOnly: boolean;
+  onStatusChange?: (status: PhotoConsultationStatus) => void;
+  refreshKey?: number;
+  placementRequest?: PhotoPlacementRequest | null;
+}) {
   const { scene, proposal, busy, preview, select, selectedId, endpoint } = useEditor();
   const current = endpoint === `/api/projects/${projectId}/scene` ? scene : null;
   const [references, setReferences] = useState<Reference[]>([]),
@@ -145,18 +201,28 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
     [workspace, setWorkspace] = useState<PhotoWorkspace | null>(null),
     [points, setPoints] = useState<PhotoPoint[]>([]),
     [editing, setEditing] = useState(false),
-    [imageSize, setImageSize] = useState({ width: 0, height: 0 }),
+    [loadedImage, setLoadedImage] = useState({ key: '', width: 0, height: 0 }),
     [error, setError] = useState(''),
     [saving, setSaving] = useState(false),
     [before, setBefore] = useState(false),
     [live, setLive] = useState<Scene | null>(null),
-    [armed, setArmed] = useState<string | null>(null);
+    [armed, setArmed] = useState<string | null>(null),
+    [showDetectedAreas, setShowDetectedAreas] = useState(true),
+    [rendering, setRendering] = useState<PhotoRenderStatus | null>(null),
+    [photoToolsPending, setPhotoToolsPending] = useState(false),
+    [pendingPlacement, setPendingPlacement] = useState<PhotoPlacementRequest | null>(null);
   const [floor, setFloor] = useState({ x: 0, z: 0, width: 1, depth: 1 }),
     [catalogue, setCatalogue] = useState<CatalogueProduct[]>([]),
     [query, setQuery] = useState(''),
     [search, setSearch] = useState(''),
     [offset, setOffset] = useState(0),
-    [currency, setCurrency] = useState('');
+    [currency, setCurrency] = useState(''),
+    [catalogueLoading, setCatalogueLoading] = useState(false),
+    [loadedCatalogueKey, setLoadedCatalogueKey] = useState('');
+  const lastPlacementRequest = useRef('');
+  const renderStatusChange = useCallback((value: PhotoRenderStatus) => {
+    setRendering((old) => (JSON.stringify(old) === JSON.stringify(value) ? old : value));
+  }, []);
   const stage = useRef<HTMLDivElement>(null),
     drag = useRef<{
       object: SceneObject;
@@ -198,7 +264,6 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
     drag.current = null;
     setPoints([]);
     setLive(null);
-    setImageSize({ width: 0, height: 0 });
     if (!referenceId) return;
     const controller = new AbortController();
     void accountRequest<PhotoWorkspace>(`/api/projects/${projectId}/photos/${referenceId}`, {
@@ -222,23 +287,37 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
         if (!controller.signal.aborted) setError('Photograph setup could not be loaded.');
       });
     return () => controller.abort();
-  }, [projectId, referenceId]); // Scene changes must not reset unsaved calibration points.
+  }, [projectId, referenceId, refreshKey]); // Scene changes must not reset unsaved calibration points.
+  const catalogueKey = `${current?.organisationId ?? ''}:${offset}:${search}`;
   useEffect(() => {
     if (readOnly || !current?.organisationId) return;
     const controller = new AbortController();
+    setCatalogueLoading(true);
     void accountRequest<CatalogueProduct[]>(
       `/api/organisations/${current?.organisationId}/catalogue?${new URLSearchParams({ offset: String(offset), ...(search ? { q: search } : {}) })}`,
       { signal: controller.signal },
     )
-      .then(setCatalogue)
+      .then((value) => {
+        if (!controller.signal.aborted) {
+          setCatalogue(value);
+          setLoadedCatalogueKey(catalogueKey);
+        }
+      })
       .catch(() => {
-        if (!controller.signal.aborted) setCatalogue([]);
+        if (!controller.signal.aborted) {
+          setCatalogue([]);
+          setLoadedCatalogueKey(catalogueKey);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCatalogueLoading(false);
       });
     return () => controller.abort();
-  }, [current?.organisationId, readOnly, search, offset]);
+  }, [current?.organisationId, readOnly, search, offset, catalogueKey]);
   const presentedRoom = proposal?.scene.room ?? current?.room;
   const pose = useMemo(() => {
     if (
+      workspace?.referenceId !== referenceId ||
       !workspace?.calibration ||
       !current ||
       workspace.calibration.roomWidth !== presentedRoom?.width ||
@@ -252,16 +331,81 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
     } catch {
       return null;
     }
-  }, [workspace?.calibration, current, presentedRoom]);
+  }, [workspace?.calibration, workspace?.referenceId, referenceId, current, presentedRoom]);
   const reference = references.find((r) => r.id === referenceId),
     shown = live ?? proposal?.scene ?? current;
-  const available = catalogue
+  const imageSource = reference
+    ? before
+      ? reference.url
+      : workspace?.referenceId === referenceId && workspace.backgroundReferenceId
+        ? `/api/projects/${projectId}/references/${workspace.backgroundReferenceId}`
+        : reference.url
+    : '';
+  const imageKey = `${referenceId}:${refreshKey}:${imageSource}`;
+  const imageSize = loadedImage.key === imageKey ? loadedImage : { width: 0, height: 0 };
+  const available = (loadedCatalogueKey === catalogueKey ? catalogue : [])
     .flatMap((product) => product.variants.map((variant) => ({ product, variant })))
     .filter(
       ({ product, variant }) =>
         product.currency === currency && isCatalogueVariantAvailable(product, variant),
     );
-  const locked = readOnly || busy || Boolean(proposal) || saving || before || editing || !pose;
+  useEffect(() => {
+    if (!placementRequest || readOnly || placementRequest.requestId === lastPlacementRequest.current) return;
+    lastPlacementRequest.current = placementRequest.requestId;
+    setPendingPlacement(placementRequest);
+    setArmed(null);
+    setQuery(placementRequest.sku);
+    setSearch(placementRequest.sku);
+    setOffset(0);
+    setError('');
+  }, [placementRequest, readOnly]);
+  useEffect(() => {
+    if (!pendingPlacement || !currency || catalogueLoading || loadedCatalogueKey !== catalogueKey) return;
+    if (search !== pendingPlacement.sku || offset !== 0) return;
+    const entry = available.find(
+      ({ variant }) => variant.id === pendingPlacement.variantId && variant.sku === pendingPlacement.sku,
+    );
+    if (entry) setArmed(entry.variant.id);
+    else setError('This recommended product is not currently available in the project’s store inventory.');
+    setPendingPlacement(null);
+  }, [
+    pendingPlacement,
+    currency,
+    catalogueLoading,
+    loadedCatalogueKey,
+    catalogueKey,
+    search,
+    offset,
+    available,
+  ]);
+  const calibrated = Boolean(pose) && !editing;
+  const imageReady = Boolean(
+    workspace?.referenceId === referenceId &&
+    imageSize.width &&
+    !saving &&
+    !before &&
+    !editing &&
+    !armed &&
+    !pendingPlacement &&
+    !photoToolsPending &&
+    (!pose || (rendering?.sceneId === shown?.id && rendering?.canvasReady)) &&
+    !live,
+  );
+  useEffect(() => {
+    onStatusChange?.({
+      referenceId: referenceId || null,
+      photoRevision: workspace?.referenceId === referenceId ? workspace.revision : 0,
+      calibrated,
+      imageReady,
+    });
+  }, [onStatusChange, referenceId, workspace?.referenceId, workspace?.revision, calibrated, imageReady]);
+  useEffect(
+    () => () =>
+      onStatusChange?.({ referenceId: null, photoRevision: 0, calibrated: false, imageReady: false }),
+    [onStatusChange],
+  );
+  const locked =
+    readOnly || busy || Boolean(proposal) || saving || before || editing || !pose || !imageSize.width;
   function point(event: { clientX: number; clientY: number }): PhotoPoint {
     const box = stage.current!.getBoundingClientRect();
     return {
@@ -270,7 +414,7 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
     };
   }
   async function save(update: Partial<PhotoWorkspace>) {
-    if (!workspace) return;
+    if (!workspace || workspace.referenceId !== referenceId) return;
     setSaving(true);
     setError('');
     try {
@@ -393,16 +537,24 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
     <div
       className="photo-studio"
       data-testid="photo-studio"
-      data-calibrated={Boolean(pose)}
+      data-calibrated={calibrated}
       data-revision={current?.version}
+      data-photo-revision={workspace?.referenceId === referenceId ? workspace.revision : undefined}
+      data-scene-version={shown?.version}
+      data-preview={Boolean(proposal || live)}
     >
       <div className="photo-intro">
         <strong>See furniture in your client's room</strong>
         <p>
-          Upload a photo, confirm a measured floor rectangle, then drag store products into place. Product
-          dimensions stay in metres.
+          Upload a photo, review the visible objects, confirm measurements, then place store furniture in the
+          photograph. Product dimensions stay in metres.
         </p>
       </div>
+      {readOnly && (
+        <p className="account-notice">
+          View-only consultation. Review the saved photograph, furniture and issued quotations.
+        </p>
+      )}
       {!readOnly && (
         <a className="business-text-link" href="#project-design-assistant">
           Get inventory suggestions with Design assistance — select this photograph and your brief
@@ -468,6 +620,11 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
             {before ? 'Show proposed furniture' : 'Show original photo'}
           </Button>
         )}
+        {workspace?.regions.length ? (
+          <Button aria-pressed={showDetectedAreas} onClick={() => setShowDetectedAreas((value) => !value)}>
+            {showDetectedAreas ? 'Hide detected areas' : 'Show detected areas'}
+          </Button>
+        ) : null}
         {workspace && !readOnly && (
           <Button
             disabled={busy || saving}
@@ -500,43 +657,56 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
             if (id) void place(id, point(event));
           }}
           onPointerDown={(event) => {
-            if (editing && !readOnly && points.length < 4) setPoints((old) => [...old, point(event)]);
+            if (editing && !readOnly && imageSize.width && points.length < 4)
+              setPoints((old) => [...old, point(event)]);
             else if (armed) void place(armed, point(event));
           }}
         >
           <img
-            src={
-              before
-                ? reference.url
-                : workspace?.backgroundReferenceId
-                  ? `/api/projects/${projectId}/references/${workspace.backgroundReferenceId}`
-                  : reference.url
-            }
+            key={imageKey}
+            src={imageSource}
             alt="Client room photograph"
             draggable={false}
-            onLoad={(event) =>
-              setImageSize({
+            onLoad={(event) => {
+              if (activeReference.current !== referenceId) return;
+              setLoadedImage({
+                key: imageKey,
                 width: event.currentTarget.naturalWidth,
                 height: event.currentTarget.naturalHeight,
-              })
-            }
+              });
+            }}
+            onError={() => {
+              if (activeReference.current !== referenceId) return;
+              setLoadedImage({ key: '', width: 0, height: 0 });
+              setError(
+                'The room photograph could not be displayed. Retry the photograph before presenting it.',
+              );
+            }}
           />
           {pose && shown && !before && !editing && (
             <div className="photo-model-layer">
               <ViewerBoundary
                 fallback={
                   <p role="status">
-                    Photo furniture rendering requires WebGL. The original photo and measured scene are
-                    preserved; use the 2D floor plan.
+                    Photo furniture rendering requires WebGL. Enable browser hardware acceleration or use a
+                    supported browser to view the furniture in this photograph. Your saved design is
+                    preserved.
                   </p>
                 }
               >
-                <PhotoFurniture projectId={projectId} scene={shown} pose={pose} onStart={start} />
+                <PhotoFurniture
+                  projectId={projectId}
+                  scene={shown}
+                  pose={pose}
+                  onStart={start}
+                  onRenderStatusChange={renderStatusChange}
+                />
               </ViewerBoundary>
             </div>
           )}
           {!before &&
             !editing &&
+            showDetectedAreas &&
             workspace?.regions.map((r, i) => (
               <div
                 key={r.id}
@@ -590,7 +760,20 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
         </div>
       )}
       {!reference && <p className="account-notice">Upload the client's room photograph to begin.</p>}
-      {editing && workspace && (
+      {workspace?.referenceId === referenceId && reference && (
+        <PhotoPhotoTools
+          key={referenceId}
+          projectId={projectId}
+          workspace={workspace}
+          readOnly={readOnly}
+          save={save}
+          onError={setError}
+          imageSize={imageSize}
+          workspaceSaving={saving}
+          onPendingChange={setPhotoToolsPending}
+        />
+      )}
+      {editing && workspace?.referenceId === referenceId && (
         <div className="photo-calibration">
           <h3>Match a measured rectangle on the floor</h3>
           <p>
@@ -659,18 +842,6 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
           alignment before presenting fit.
         </p>
       )}
-      {workspace && reference && (
-        <PhotoPhotoTools
-          key={referenceId}
-          projectId={projectId}
-          workspace={workspace}
-          readOnly={readOnly}
-          save={save}
-          onError={setError}
-          imageSize={imageSize}
-          workspaceSaving={saving}
-        />
-      )}
       {pose && !editing && (
         <>
           <div className="photo-selection" aria-label="Photo furniture">
@@ -682,6 +853,12 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
                 data-x={object.transform.x}
                 data-z={object.transform.z}
                 data-yaw={object.transform.rotation}
+                data-render-kind={
+                  rendering?.sceneId === shown?.id ? (rendering.objects[object.id]?.kind ?? 'proxy') : 'proxy'
+                }
+                data-asset-id={
+                  rendering?.sceneId === shown?.id ? rendering.objects[object.id]?.assetId : undefined
+                }
                 aria-pressed={object.id === selectedId}
                 onClick={() => select(object.id)}
               >
@@ -743,35 +920,83 @@ export default function PhotoStudio({ projectId, readOnly }: { projectId: string
                 accept the checked placement to save.
               </p>
               <div className="photo-products">
-                {available.map(({ product, variant }) => (
-                  <article
-                    draggable={!locked}
-                    key={variant.id}
-                    onDragStart={(event) =>
-                      event.dataTransfer.setData('application/x-roomsell-variant', variant.id)
-                    }
-                  >
-                    <strong>{product.name}</strong>
-                    <small>
-                      {variant.sku} · {variant.dimensions.width} × {variant.dimensions.depth} ×{' '}
-                      {variant.dimensions.height} m
-                    </small>
-                    <span>{formatMoney(variant.priceMinor, product.currency)}</span>
-                    <Button
-                      disabled={locked}
-                      aria-pressed={armed === variant.id}
-                      onClick={() => setArmed(variant.id)}
+                {available.map(({ product, variant }) => {
+                  const image =
+                    product.assets.find(
+                      (asset) => asset.kind === 'image' && asset.variantId === variant.id,
+                    ) ?? product.assets.find((asset) => asset.kind === 'image' && !asset.variantId);
+                  const imageUrl =
+                    image && current?.organisationId
+                      ? `/api/organisations/${current.organisationId}/catalogue/${product.id}/assets/${image.id}`
+                      : null;
+                  return (
+                    <article
+                      draggable={!locked}
+                      key={variant.id}
+                      onDragStart={(event) =>
+                        event.dataTransfer.setData('application/x-roomsell-variant', variant.id)
+                      }
                     >
-                      Place {product.name}
-                    </Button>
-                  </article>
-                ))}
+                      {imageUrl && (
+                        <img
+                          className="photo-catalogue-image"
+                          src={imageUrl}
+                          alt={product.name}
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      )}
+                      <strong>{product.name}</strong>
+                      <small>
+                        {variant.sku} · {variant.dimensions.width} × {variant.dimensions.depth} ×{' '}
+                        {variant.dimensions.height} m
+                      </small>
+                      <span>{formatMoney(variant.priceMinor, product.currency)}</span>
+                      <Button
+                        disabled={locked}
+                        aria-pressed={armed === variant.id}
+                        onClick={() => {
+                          setPendingPlacement(null);
+                          setArmed(variant.id);
+                        }}
+                      >
+                        Place {product.name}
+                      </Button>
+                    </article>
+                  );
+                })}
               </div>
-              {armed && <p role="status">Click the furniture's floor position in the photograph.</p>}
-              <Button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 25))}>
+              {catalogueLoading && <p role="status">Loading store inventory…</p>}
+              {!catalogueLoading && !available.length && (
+                <p>No available products match this search and project currency.</p>
+              )}
+              {(armed || pendingPlacement) && (
+                <div className="photo-placement-notice">
+                  <p role="status">
+                    {armed
+                      ? "Click the furniture's floor position in the photograph."
+                      : 'Finding the recommended product in store inventory…'}
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setArmed(null);
+                      setPendingPlacement(null);
+                    }}
+                  >
+                    Cancel placement
+                  </Button>
+                </div>
+              )}
+              <Button
+                disabled={catalogueLoading || offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - 25))}
+              >
                 Previous products
               </Button>
-              <Button disabled={catalogue.length < 25} onClick={() => setOffset(offset + 25)}>
+              <Button
+                disabled={catalogueLoading || catalogue.length < 25}
+                onClick={() => setOffset(offset + 25)}
+              >
                 Next products
               </Button>
             </div>

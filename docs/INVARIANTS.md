@@ -2,12 +2,16 @@
 
 ## Photo selling invariants
 
-- One canonical metric scene feeds 2D, 3D and calibrated photograph views. Camera calibration never rescales catalogue geometry.
+- One canonical metric scene feeds the calibrated photograph workspace and separate 3D adapters. The editor UI has no 2D section. Removing its presentation does not remove metric geometry, lock or fit validation; camera calibration never rescales catalogue geometry.
 - Photo calibration and processing use the current project authority and separate revision checks. Arbitrary source/background references cannot cross project or tenant boundaries.
 - AI image detections are approximate labels/rectangles, never trusted measurements, SKUs, physical clearance or lock changes.
 - Original photograph bytes remain immutable. Cleanup changes only explicit reviewed pixel areas and needs a current completed result before application. Original furniture removal and catalogue object removal are distinct operations.
 - A retained visual object becomes collision geometry only through a confirmed measured obstacle. Manual rectangular foreground crops are labelled visual areas, not inferred depth.
 - Explicit local fixture mode cannot analyse arbitrary real photographs: the synthetic adapter verifies tenant and exact source pixels. Fictional models/data are labelled.
+- Scanning proposes visible labels and rectangles for human correction. It never guarantees identification of every object, supplies trusted dimensions or silently converts an image object into an inventory SKU.
+- Completion advice may reference only authorised catalogue candidates, existing scene object IDs and known reviewed photo region IDs. Catalogue removal must pass ordinary lock/geometry/preview checks; photo keep/remove advice is saved only after explicit review and does not run cleanup automatically.
+- A recommendation selects an actual variant for explicit placement in the photo; it cannot place or accept a purchase on the client's behalf.
+- **Confirm design for quotation** is a local consultation review bound to scene version, selected photo/revision and loaded product details. Relevant changes, open previews, refresh or reload invalidate it. It is neither durable customer consent nor server authorisation. Existing issued history remains available; backend quotation checks independently enforce source/version, stock, permissions and exact prices.
 
 ## Additional enforced platform invariants
 
