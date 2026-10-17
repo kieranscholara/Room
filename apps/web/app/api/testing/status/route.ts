@@ -8,6 +8,8 @@ export async function GET() {
       name: 'Boreal Living',
       organisationId: fixture.organisationId,
       projectId: fixture.projectId,
+      replacementProjectId: fixture.replacementProjectId ?? null,
+      replacementAssetId: fixture.replacementAssetId ?? null,
       consumerProjectId: fixture.consumerProjectId ?? null,
     };
   });

@@ -5,6 +5,7 @@ import { adminClient, databaseError, membership } from './supabase-server';
 import { projectContext } from './project-service';
 import { ServiceError } from './editor-service';
 import { uuid } from './account-schemas';
+import { quotationPhotoProof } from './photo-composition-service';
 import {
   policyWriteSchema,
   quotationIssueSchema,
@@ -107,6 +108,7 @@ async function pricingPreview(
   const parsed = quotationSourceSchema.safeParse(result.data);
   if (!parsed.success) throw new ServiceError(500, 'Authoritative quotation source could not be verified.');
   const source = parsed.data;
+  const photo = request.photo ? await quotationPhotoProof(projectId, request.photo) : undefined;
   try {
     const calculation = priceQuotation({
       policy: source.policy,
@@ -119,8 +121,10 @@ async function pricingPreview(
         currency,
       })),
     });
-    const sourceFingerprint = createHash('sha256').update(JSON.stringify(source)).digest('hex');
-    return { source, calculation, sourceFingerprint };
+    const sourceFingerprint = createHash('sha256')
+      .update(JSON.stringify(photo ? { source, photo } : source))
+      .digest('hex');
+    return { source, calculation, sourceFingerprint, ...(photo ? { photo } : {}) };
   } catch (error) {
     if (error instanceof PricingError) throw new ServiceError(422, error.message);
     throw error;
@@ -143,6 +147,7 @@ export async function issueQuotation(projectId: string, input: unknown): Promise
         expectedSceneVersion: request.expectedSceneVersion,
         expectedPolicyRevision: request.expectedPolicyRevision,
         expectedSourceFingerprint: request.expectedSourceFingerprint,
+        ...(request.photo ? { photo: request.photo } : {}),
       }),
     )
     .digest('hex');
@@ -170,7 +175,7 @@ export async function issueQuotation(projectId: string, input: unknown): Promise
       409,
       'Catalogue prices or quotation details changed. Preview and review the quotation again.',
     );
-  const result = await adminClient().rpc('issue_quotation', {
+  const result = await adminClient().rpc(request.photo ? 'issue_photo_quotation' : 'issue_quotation', {
     p_project_id: projectId,
     p_actor_id: context.user.id,
     p_expected_scene_version: request.expectedSceneVersion,
@@ -179,6 +184,7 @@ export async function issueQuotation(projectId: string, input: unknown): Promise
     p_request_hash: requestHash,
     p_source: source,
     p_calculation: calculation,
+    ...(request.photo ? { p_photo: request.photo } : {}),
   });
   databaseError(result.error);
   return issuedDto(result.data as QuotationRow);

@@ -1,5 +1,15 @@
 # RoomSell architecture alignment audit
 
+## Actual photograph composition architecture — 17 October 2026
+
+The existing modular monolith remains: Next.js, Supabase and pure scene/geometry/layout/catalogue/pricing packages. The retailer UI composes image pixels in Canvas 2D, with no WebGL or 3D furniture viewer. The metric scene is internal authority for fit, independent locks, versioned operations and SKU references. Legacy demo/personal-room adapters are separate.
+
+`photo_workspaces` owns reviewed regions, calibration and cleanup background. New `photo_compositions` owns bounded per-object image layers/masks, scene/photo source revisions, rendered private PNG/hash and staff confirmation. `photo-composition-service.ts` validates input/access and invokes service-only transactional RPCs. `photo-composition-jobs.ts` rechecks actor and source revisions, downloads only selected-project assets and uses `photo-composition-renderer.ts`. The renderer shares alpha-mask logic with the browser; rugs use inverse floor projection and tall images preserve their supplied aspect ratio. Optional AI lighting is bounded; original product pixels are reinserted after it. Job retries recover staged bytes without overwriting a final reference.
+
+Quotation preview/issue carries exact image proof. `issue_photo_quotation` and the quotation trigger validate current confirmed composition within the existing organisation lock, then preserve the existing stock/pricing transaction. `quotation_photo_evidence` prevents source/final reference deletion while an issued quote retains them. PDF export verifies the stored PNG hash before embedding it. Migrations 020–022 are forward-only and preserve prior scenes.
+
+This approved implementation is ADR-007. Automatic depth reconstruction, invented product views and exact visual fit from one photo remain outside the contract. Source photographs and catalogue identities are retained. The historical target descriptions below are not evidence of current implementation; current workflow is [PHOTO_SELLING.md](PHOTO_SELLING.md).
+
 ## Current architecture — salesperson photograph consultation
 
 The latest confirmed product flow removes the visible 2D section. `project-editor.tsx` presents a photo-only retailer consultation; `editor.tsx` uses `photo-studio.tsx` for retailer projects and the 3D viewer for legacy demo/personal rooms. The old Konva adapter is not mounted. No scene conversion, new dependency, database migration or replacement application is needed. Historical keep-2D decisions below describe earlier scope and are superseded for the user interface.

@@ -19,6 +19,8 @@ const fixtureSchema = z
     personas: z.object({ retailer: persona, customer: persona, consumer: persona }).strict(),
     products: z.array(z.object({ id: z.uuid(), variantIds: z.array(z.uuid()), sku: z.string() })),
     consumerProjectId: z.uuid().optional(),
+    replacementProjectId: z.uuid().optional(),
+    replacementAssetId: z.uuid().optional(),
   })
   .strict();
 export type TestFixture = z.infer<typeof fixtureSchema>;

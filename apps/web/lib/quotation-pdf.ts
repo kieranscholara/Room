@@ -3,7 +3,10 @@ import { formatMinorMoney } from '@roomsell/catalogue';
 import type { IssuedQuotation } from './quotation-schemas';
 
 /** Render only a verified immutable snapshot; no catalogue lookup or repricing. */
-export async function renderQuotationPdf(quote: IssuedQuotation): Promise<Uint8Array> {
+export async function renderQuotationPdf(
+  quote: IssuedQuotation,
+  photoBytes?: Uint8Array,
+): Promise<Uint8Array> {
   const document = await PDFDocument.create();
   const font = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
@@ -125,6 +128,24 @@ export async function renderQuotationPdf(quote: IssuedQuotation): Promise<Uint8A
       'Some characters are shown as ? because the embedded PDF font cannot display them. The complete original text is retained in the application quotation.',
       9,
     );
+  if (quote.snapshot.photo && photoBytes) {
+    const image = await document.embedPng(photoBytes),
+      photoPage = document.addPage([595.28, 841.89]);
+    const scale = Math.min(495 / image.width, 640 / image.height);
+    photoPage.drawText('Confirmed client room photograph', { x: 50, y: 790, size: 15, font: bold });
+    photoPage.drawText(`Photo revision ${quote.snapshot.photo.compositionRevision} | ${quote.number}`, {
+      x: 50,
+      y: 765,
+      size: 9,
+      font,
+    });
+    photoPage.drawImage(image, {
+      x: 50,
+      y: 740 - image.height * scale,
+      width: image.width * scale,
+      height: image.height * scale,
+    });
+  }
   const pages = document.getPages();
   pages.forEach((printed, index) =>
     printed.drawText(`RoomSell | ${index + 1} / ${pages.length}`, {

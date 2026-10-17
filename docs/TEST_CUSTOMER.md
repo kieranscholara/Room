@@ -1,6 +1,6 @@
 # Boreal Living fictional customer
 
-For the main salesperson-operated photograph workflow, start with **Open photo placement demo** on `/testing`. Retailer projects open directly in the photo workspace; there is no visible 2D section. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for scan review, measurements/calibration, **Complete the room**, immediate SKU placement, reviewed removal and client confirmation before quotation.
+For the main salesperson-operated photograph workflow, start with **Open photograph replacement trial** on `/testing`. Retailer projects open directly in the photo workspace; there is no visible 2D section. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for scan review, measurements/calibration, **Complete the room**, immediate SKU placement, reviewed removal and client confirmation before quotation.
 
 Boreal Living is an authorised synthetic retailer, not a real company. Its catalogue, SKUs, contacts and inventory are deliberately fictional. Generated studio product photographs and a staged bedroom reference are illustrative and are not proof of product dimensions or fit. Measured dimensions in the catalogue/scene remain authoritative.
 
@@ -22,12 +22,16 @@ Open `/testing` in the running application. Choose Showroom manager (Alex), Shar
 
 The seed is repeatable: it repairs missing supplied images, reference and initial publication without replacing existing scenes, stock or an administrator's existing publication decisions. It verifies the exact registered company/product/account identities. Secrets are generated locally and stored in `.local/fixtures` with restricted permissions; never share or commit that directory.
 
-## Retailer and customer journey
+## Current photograph replacement trial
+
+The new primary testing button opens a separate, initially empty project, preserving Maya's older six-object room. Its generated photograph, recorded scan/empty background, assumed calibration and transparent Linen bed image allow removal/replacement within the actual image without API keys. Follow [PHOTO_SELLING.md](PHOTO_SELLING.md) for mask review, cleanup, catalogue image choice/dragging, final PNG render, persisted staff confirmation and quotation/PDF containing the exact image. A recorded fixture is not live AI or a measured real room.
+
+## Earlier furnished retailer and customer journey
 
 1. As manager, inspect Catalogue photographs and actual dimensions/SKUs. The measured bedroom contains a bed, two bedside tables, rug, desk and fully locked wardrobe.
 2. Inventory has a clearly labelled simulated provider panel. Change a test SKU's upstream stock, then run synchronous sync or queue background sync. Only the registered fictional connector uses this in-process provider; other connections use the secure real HTTPS adapter.
 3. Open Maya's project. Upload/choose a private photograph, scan visible objects with human correction, confirm dimensions and the measured floor rectangle. In **Complete the room**, request advice using the labelled local provider for the synthetic example. Review catalogue additions/removals and known photo-region keep/remove choices. Choose a real fixture SKU, click its intended position in the image, drag/rotate and explicitly accept each checked preview. Original-image cleanup requires separate review; the locked wardrobe must remain exact.
-4. In **Products and budget**, review the saved furniture and positions with the client, tick the review checkbox and click **Confirm design for quotation**. Review and issue the configured quotation. The review is local and resets after scene/photo changes or reload; existing issued history stays available. Switch to Maya and reserve the quotation for 15 minutes, then confirm or cancel. Return as Alex to record fulfilment. No payment or email is sent. The fictional upstream reconciles fulfilled quantities so later sync cannot restore sold stock.
+4. In **Products and budget**, review the saved furniture and positions with the client, tick the review checkbox and click **Confirm design for quotation**. Review and issue the configured quotation. Save/render/use the final photograph first. Staff confirmation pins its exact revision/hash; the visible review checklist resets after changes/reload. Issued history and its saved image stay available. Switch to Maya and reserve the quotation for 15 minutes, then confirm or cancel. Return as Alex to record fulfilment. No payment or email is sent. The fictional upstream reconciles fulfilled quantities so later sync cannot restore sold stock.
 5. For independent scenarios, create a fresh project rather than deleting or resetting the supplied consultation. Sharing grants view/edit/order separately; contacts alone provide no access.
 
 The fictional supplier now implements the optional custom REST fulfilment contract: exact mapped external IDs, quantities, order UUID and a frozen request hash; an immutable `BOREAL-…` acknowledgement; idempotent retries; explicit rejection if upstream test stock is unavailable. Its order ledger is retained privately alongside fixture state. It is an in-process simulator, not a real external supplier. Ordinary connections keep DNS-pinned public HTTPS transport and need a compatible supplier endpoint.

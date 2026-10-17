@@ -31,25 +31,33 @@ async function fixturePhoto(orgId: string, source: Buffer) {
   const fixture = await testFixture();
   if (fixture.organisationId !== orgId)
     throw new ServiceError(403, 'This adapter is restricted to the fictional retailer.');
-  const directory = resolve(
-    /* turbopackIgnore: true */ process.cwd(),
-    '../../fixtures/boreal-living/photo-demo',
-  );
-  const bytes = await sharp(await readFile(resolve(directory, 'room.png')))
-    .rotate()
-    .png()
-    .toBuffer();
-  if (createHash('sha256').update(bytes).digest('hex') !== createHash('sha256').update(source).digest('hex'))
-    throw new ServiceError(
-      422,
-      'The local adapter only handles the labelled synthetic measurement demonstration. Select that photograph, or use OpenAI for another photo.',
+  const hash = createHash('sha256').update(source).digest('hex');
+  for (const [folder, original, empty] of [
+    ['photo-demo', 'room.png', 'empty.png'],
+    ['photo-replacement', 'source.png', 'clean-room.png'],
+  ]) {
+    const directory = resolve(
+      /* turbopackIgnore: true */ process.cwd(),
+      '../../fixtures/boreal-living',
+      folder,
     );
-  return {
-    directory,
-    analysis: photoAnalysisSchema.parse(
-      JSON.parse(await readFile(resolve(directory, 'analysis.json'), 'utf8')),
-    ),
-  };
+    const bytes = await sharp(await readFile(/* turbopackIgnore: true */ resolve(directory, original)))
+      .rotate()
+      .png()
+      .toBuffer();
+    if (createHash('sha256').update(bytes).digest('hex') === hash)
+      return {
+        directory,
+        empty,
+        analysis: photoAnalysisSchema.parse(
+          JSON.parse(await readFile(/* turbopackIgnore: true */ resolve(directory, 'analysis.json'), 'utf8')),
+        ),
+      };
+  }
+  throw new ServiceError(
+    422,
+    'The local adapter only handles registered fictional demonstration photographs. Use OpenAI for another photo.',
+  );
 }
 export async function photoJobs(projectId: string, referenceId: string) {
   uuid.parse(referenceId);
@@ -135,7 +143,7 @@ export async function executePhotoJob(job: TenantJob) {
   if (!previous.data) {
     let bytes: Buffer;
     if (fixture) {
-      const empty = await readFile(resolve(fixture.directory, 'empty.png'));
+      const empty = await readFile(resolve(fixture.directory, fixture.empty));
       const square = await preparePhotoEdit(empty, regions);
       bytes = await composePhotoCleanup(source.bytes, square.image, regions);
     } else bytes = await cleanupPhoto(source.bytes, regions);

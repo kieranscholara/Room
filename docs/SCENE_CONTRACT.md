@@ -1,5 +1,11 @@
 # Canonical scene contract
 
+## Photograph composition is separate from scene v2 — 17 October 2026
+
+Scene coordinates, dimensions, product/variant references, independent locks and operations are unchanged. No pixel mask, AI-generated dimension or free image scale enters canonical scene JSON. `photo-product.ts` derives display envelopes from the scene/calibration; rugs inverse-project real image pixels onto the metric floor footprint.
+
+`photo-image-contract.ts` defines independently revisioned `{objectId, assetId, mask}` layers and strict source revisions. `mask` is bounded alpha-only automatic/outline/erase/restore data. Every current scene object must have exactly one validated selected-product image layer before a composition can save. Render/apply/confirm bind exact scene/photo/composition revisions. Final reference/hash plus layers and staff actor/time become immutable quotation evidence. See migrations 020–022 and [PHOTO_SELLING.md](PHOTO_SELLING.md).
+
 ## Calibrated photo presentation
 
 `photo_workspaces` (migration 019) stores image dimensions, source-reference identity, version-1 floor calibration, approximate reviewed regions and an optional approved background. Its independent revision uses compare-and-swap; these fields are not scene v2 geometry. Calibration requires the current confirmed room width/depth and natural oriented image size. A changed room size invalidates presentation until recalibration.

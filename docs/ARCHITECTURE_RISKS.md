@@ -1,5 +1,19 @@
 # Architecture risk register
 
+## Photograph image composition risks — current, 17 October 2026
+
+| Risk                                   | Implemented control / remaining acceptance                                                                                                                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Invented or repainted product identity | Only authorised selected-SKU image assets; alpha-only masks; original catalogue pixels reinserted after optional AI lighting. Appropriate supplier angles and segmentation quality still need review.                                |
+| Single-photo scale/depth ambiguity     | Confirmed measured room and four-point patch; immutable metric dimensions and collision checks. Tall image envelopes are an approximation, not calibrated volumetric reconstruction; critical clearances need physical verification. |
+| Missed objects, shadows and occlusion  | Reviewed outlines/brushes, explicit cleanup apply, kept-foreground restoration. Hidden content is generated; mask edges/lighting need customer review.                                                                               |
+| Quote/image mismatch or stale render   | Scene/photo/composition CAS, completed-job source binding, persisted staff confirmation and atomic proof verification. Snapshot pins image hash/layers and FK-protected references.                                                  |
+| Tenant/private-photo exposure          | Existing scoped project access, private streaming and service-only writes; new cross-tenant/forged-asset integration cases. No arbitrary input image URLs.                                                                           |
+| Resource growth and retries            | Bounded masks/images/objects, durable idempotent jobs, staged-byte retry recovery, separate local export quotas and existing reference cap. Production retention and storage operations remain required.                             |
+| Overstated fixture realism             | Photographic source/empty pixels/catalogue bed are generated fictional assets; recorded local scan/cleanup and assumed room calibration are labelled. Live OpenAI and a physically measured room remain external acceptance gates.   |
+
+The dated risks below are historical checkpoints and retain their original context.
+
 ## Photograph consultation risks — current, 16 October 2026
 
 The visible 2D section has been removed by product instruction. Geometry, locks, scene v2 and tenant checks remain. Earlier statements about preserving the 2D UI are historical.

@@ -1,5 +1,13 @@
 # Known limitations
 
+## Current photograph editor limits — 17 October 2026
+
+Retailer editing now uses actual catalogue image cutouts in the uploaded photo, without a 3D furniture view. Immediate movement is local; vision, cleanup and optional lighting are asynchronous. One photograph cannot establish all objects, hidden surfaces or exact room geometry. Room measurements/calibration must be supplied and reviewed; original furniture needs measured obstacles for physical collision checks.
+
+Tall product cutouts preserve supplied aspect/view inside a projected metric envelope, so apparent alignment is approximate. Footprint rotation does not synthesize a new product angle. Rugs use a supplied top-down image. Masks and reconstructed backgrounds may need manual correction; appropriate catalogue photos/transparent assets matter. No live OpenAI visual-quality result or physically verified fit is claimed by the fictional fixture. Staff confirmation is persisted image evidence, not a customer signature.
+
+The existing bounded limits include 30 objects, 20 room references including generated renders, bounded masks and per-actor/organisation job quotas. Quoted source/final references are intentionally retained. Earlier model/proxy descriptions below apply to legacy workspaces, not the current retailer photo compositor.
+
 ## Current platform boundary
 
 The current increments supersede older missing-feature statements below. Private references, bounded AI/OpenAI transport, durable jobs, reservation/order lifecycle, optional idempotent supplier acknowledgement, password recovery and owned consumer publication/enquiry are implemented locally. Live OpenAI, real retailer provider acceptance, managed projects/SMTP/alerts/hosted restore remain unconfigured. Snapshot-only stock providers cannot fulfil orders without configuring the supported acknowledgement contract. One supplier connection per order is supported; an unknown outcome remains held for idempotent recovery. No payments, billing, shipping, global marketplace search/moderation or 3D mesh editing is included. Hosted request-size limits and commercial retention need deployment acceptance. See CURRENT_STATE.md and DEPLOYMENT.md for current evidence and operating limits.

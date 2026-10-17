@@ -3,7 +3,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { calibratePhoto, projectPhotoPoint, type PhotoCalibration } from '@roomsell/geometry';
 import type { Scene } from '@roomsell/scene-core';
-import { calibratePhotoInBrowser, confirmPhotoDesign } from './photo-helpers';
+import { calibratePhotoInBrowser, confirmPhotoDesign, dragPhotoProduct, runPhotoJob } from './photo-helpers';
 
 test.use({
   launchOptions: {
@@ -64,11 +64,7 @@ async function clickWorld(
   await stage.click({ position: { x: pixel.x * b.width, y: pixel.y * b.height } });
 }
 async function worker(page: Page) {
-  const token = await readFile('.local/e2e-fixtures/worker-token', 'utf8');
-  const r = await page.request.post('/api/internal/jobs/run', {
-    headers: { Authorization: 'Bearer ' + token },
-  });
-  expect(r.status()).toBe(200);
+  await runPhotoJob(page);
 }
 async function saveReviewedSelections(page: Page, photoPath: string) {
   const saved = page.waitForResponse(
@@ -78,19 +74,19 @@ async function saveReviewedSelections(page: Page, photoPath: string) {
   expect((await saved).status()).toBe(200);
 }
 
-test('salesperson calibrates a photo, places an actual SKU, drags and rotates its real model, and reloads the same scene', async ({
+test('salesperson calibrates a photo, places an actual SKU, drags and rotates its measured footprint, and reloads the same scene', async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  const { projectId, referenceId, stage, actualCalibration } = await setup(page);
+  const { projectId, referenceId, actualCalibration } = await setup(page);
   await expect(page.getByRole('button', { name: 'Place Pine oak bedside', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Place Pine oak bedside', exact: true }).click();
   await clickWorld(page, { x: 3, y: 0, z: 2 }, actualCalibration);
   await expect(page.getByRole('button', { name: 'Accept layout', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Accept layout', exact: true })).not.toBeVisible();
-  await expect(page.getByTestId('photo-model-status')).toHaveAttribute('data-ready', 'true');
+  await expect(page.getByTestId('photo-image-status')).toHaveAttribute('data-ready', 'true');
   let scene = (await get(page, `/api/projects/${projectId}/scene`)).scene as Scene;
   expect(scene.objects).toHaveLength(1);
   const object = scene.objects[0];
@@ -98,22 +94,20 @@ test('salesperson calibrates a photo, places an actual SKU, drags and rotates it
   expect(object.dimensions).toEqual({ width: 0.5, depth: 0.4, height: 0.55 });
   expect(object.transform.x).toBeCloseTo(3, 2);
   expect(object.transform.z).toBeCloseTo(2, 2);
-  const pose = calibratePhoto(actualCalibration),
-    from = projectPhotoPoint(pose, { x: object.transform.x, y: 0.55, z: object.transform.z }),
-    to = projectPhotoPoint(pose, { x: 4, y: 0.55, z: 2.5 });
-  await stage.scrollIntoViewIfNeeded();
-  const b = (await stage.boundingBox())!;
-  await page.mouse.move(b.x + from.x * b.width, b.y + from.y * b.height);
-  await page.mouse.down();
-  await page.mouse.move(b.x + to.x * b.width, b.y + to.y * b.height, { steps: 8 });
-  await page.mouse.up();
+  await dragPhotoProduct(
+    page,
+    object.id,
+    { x: object.transform.x, z: object.transform.z },
+    { x: 4, z: 2.5 },
+    actualCalibration,
+  );
   await expect(page.getByRole('button', { name: 'Accept layout', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Accept layout', exact: true })).not.toBeVisible();
   scene = (await get(page, `/api/projects/${projectId}/scene`)).scene;
   expect(scene.objects[0].transform.x).toBeCloseTo(4, 1);
   expect(scene.objects[0].transform.z).toBeCloseTo(2.5, 1);
-  await page.getByRole('button', { name: 'Rotate selected furniture', exact: true }).click();
+  await page.getByRole('button', { name: 'Rotate measured footprint', exact: true }).click();
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Accept layout', exact: true })).not.toBeVisible();
   scene = (await get(page, `/api/projects/${projectId}/scene`)).scene;
@@ -167,7 +161,7 @@ test('quotation preparation requires reviewed accepted furniture and is invalida
   await page.getByRole('button', { name: 'Show proposed furniture', exact: true }).click();
   await confirmPhotoDesign(page);
 
-  await page.getByRole('button', { name: 'Rotate selected furniture', exact: true }).click();
+  await page.getByRole('button', { name: 'Rotate measured footprint', exact: true }).click();
   await expect(review).toHaveAttribute('data-confirmed', 'false');
   await expect(quotation).toBeDisabled();
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
@@ -184,7 +178,7 @@ test('quotation preparation requires reviewed accepted furniture and is invalida
   await expect(page.getByRole('region', { name: 'Issued quotation details', exact: true })).toBeVisible();
   const quotes = await get(page, `/api/projects/${projectId}/quotations`);
   expect(quotes).toHaveLength(1);
-  await page.getByRole('button', { name: 'Rotate selected furniture', exact: true }).click();
+  await page.getByRole('button', { name: 'Rotate measured footprint', exact: true }).click();
   await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Accept layout', exact: true })).not.toBeVisible();
   await expect(review).toHaveAttribute('data-confirmed', 'false');
@@ -197,7 +191,7 @@ test('quotation preparation requires reviewed accepted furniture and is invalida
   await expect(page.getByRole('button', { name: 'View quotation details', exact: true })).toBeVisible();
 });
 
-test('a calibrated photograph with saved catalogue furniture cannot be confirmed or quoted without WebGL rendering', async ({
+test('a calibrated photograph with saved catalogue furniture can be edited and quoted without WebGL', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -247,16 +241,17 @@ test('a calibrated photograph with saved catalogue furniture cannot be confirmed
   const saved = (await get(page, `/api/projects/${projectId}/scene`)).scene;
   await page.reload();
   await expect(page.getByTestId('photo-studio')).toHaveAttribute('data-calibrated', 'true');
-  await expect(page.getByText(/Photo furniture rendering requires WebGL/)).toBeVisible();
+  await expect(page.getByTestId('photo-image-status')).toHaveAttribute('data-ready', 'true');
+  await confirmPhotoDesign(page);
   await expect(page.getByRole('img', { name: 'Client room photograph', exact: true })).toBeVisible();
   await expect(
     page.getByLabel('The client has reviewed these furniture choices and positions.', { exact: true }),
-  ).toBeDisabled();
+  ).toBeChecked();
   await expect(
     page.getByRole('button', { name: 'Confirm design for quotation', exact: true }),
   ).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Review quotation', exact: true })).toBeDisabled();
-  await expect(page.getByTestId('photo-design-review')).toHaveAttribute('data-confirmed', 'false');
+  await expect(page.getByRole('button', { name: 'Review quotation', exact: true })).toBeEnabled();
+  await expect(page.getByTestId('photo-design-review')).toHaveAttribute('data-confirmed', 'true');
   expect((await get(page, `/api/projects/${projectId}/scene`)).scene).toEqual(saved);
 });
 
@@ -393,7 +388,7 @@ test('pending photo advice disables quotation confirmation and cannot save after
     ).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Review quotation', exact: true })).toBeDisabled();
 
-    await page.getByRole('button', { name: 'Rotate selected furniture', exact: true }).click();
+    await page.getByRole('button', { name: 'Rotate measured footprint', exact: true }).click();
     await page.getByRole('button', { name: 'Accept layout', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Accept layout', exact: true })).not.toBeVisible();
     releaseGet();
@@ -472,7 +467,7 @@ test('reviewed scan and cleanup preserve the original photo and reject stale or 
       file: {
         name: 'different.png',
         mimeType: 'image/png',
-        buffer: await readFile('fixtures/boreal-living/images/room.png'),
+        buffer: await readFile('fixtures/boreal-living/photo-replacement/clean-room.png'),
       },
     },
   });
@@ -513,9 +508,9 @@ test('photo controls preserve locks and reject overlapping placements without ch
   const saved = (await get(page, `/api/projects/${projectId}/scene`)).scene as Scene,
     object = saved.objects[0];
   expect(object.locks).toEqual({ position: true, rotation: true, product: true });
-  await expect(page.getByRole('button', { name: 'Rotate selected furniture', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Rotate measured footprint', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Remove selected furniture', exact: true })).toBeDisabled();
-  await expect(page.getByTestId('photo-model-status')).toHaveAttribute('data-ready', 'true');
+  await expect(page.getByTestId('photo-image-status')).toHaveAttribute('data-ready', 'true');
   await stage.scrollIntoViewIfNeeded();
   const b = (await stage.boundingBox())!,
     p = projectPhotoPoint(calibratePhoto(actualCalibration), {

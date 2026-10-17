@@ -1,5 +1,20 @@
 # Module ownership and dependency boundaries
 
+## Photograph image editing additions — 17 October 2026
+
+| Module                                                                              | Responsibility                                                                                  |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `packages/geometry/src/photo-product.ts`                                            | Framework-independent metric image envelopes; no product stretching.                            |
+| `apps/web/lib/image-mask-contract.ts`, `image-mask.ts`                              | Bounded alpha-only cutout/selection contracts and deterministic shared pixel operations.        |
+| `apps/web/lib/photo-image-contract.ts`, `photo-composition-service.ts`              | Versioned composition/proof DTOs, scoped authority and transactional orchestration.             |
+| `apps/web/lib/photo-floor-image.ts`, `photo-composition-renderer.ts`                | Actual catalogue pixel projection/composition and PNG hash.                                     |
+| `apps/web/lib/photo-composition-jobs.ts`                                            | Durable rendering, source/actor rechecks, private byte staging and optional consented lighting. |
+| `photo-image-layers.tsx`, `photo-composition-controls.tsx`, `pixel-mask-editor.tsx` | Canvas 2D preview, image choice/mask review and explicit render/apply controls.                 |
+| `photo-tools.tsx`, `photo-provider.ts`                                              | Human-reviewed original-object selections, bounded cleanup and transport.                       |
+| migrations 020–022                                                                  | Composition CAS/asset admission, immutable quotation image evidence and quotas.                 |
+| quotation service/PDF route                                                         | Atomic exact-image proof, pinned SKU/pricing snapshot and private image export.                 |
+| `fixtures/boreal-living/photo-replacement`, seed/testing                            | Registered fictional photograph replacement journey; assumed calibration and recorded adapter.  |
+
 ## Photo workflow modules
 
 Retailer projects now use the photograph consultation exclusively. `editor.tsx` no longer mounts the legacy Konva floor plan; legacy demo/personal workspaces use 3D. The underlying scene/geometry/layout ownership is unchanged. Earlier keep-2D statements below are historical, not current presentation requirements.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PhotoCalibration } from '@roomsell/geometry';
+import { maskStrokeSchema } from './image-mask-contract';
 export const photoPointSchema = z
   .object({ x: z.number().finite().min(0).max(1), y: z.number().finite().min(0).max(1) })
   .strict();
@@ -22,6 +23,8 @@ export const photoRegionSchema = z
     bounds: photoBoundsSchema,
     disposition: z.enum(['keep', 'remove']),
     foreground: z.boolean().default(false),
+    outline: z.array(photoPointSchema).min(3).max(80).optional(),
+    maskStrokes: z.array(maskStrokeSchema).max(60).optional(),
   })
   .strict()
   .refine(
@@ -82,7 +85,15 @@ export const photoAnalysisSchema = z
   .object({
     summary: z.string().min(1).max(1000),
     objects: z
-      .array(z.object({ label: z.string().min(1).max(100), bounds: photoBoundsSchema }).strict())
+      .array(
+        z
+          .object({
+            label: z.string().min(1).max(100),
+            bounds: photoBoundsSchema,
+            outline: z.array(photoPointSchema).min(3).max(80).optional(),
+          })
+          .strict(),
+      )
       .max(20),
   })
   .strict();

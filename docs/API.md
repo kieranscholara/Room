@@ -1,5 +1,17 @@
 # HTTP API
 
+## Photograph image composition
+
+`/api/projects/:projectId/photos/:referenceId/composition` requires current scoped project access. GET returns composition (or null), recent render jobs and OpenAI configuration availability. PUT requires edit access and a strict discriminated request:
+
+- `action: "save"`, `expectedRevision`, `expectedSceneVersion`, `expectedPhotoRevision`, and bounded `layers: [{objectId,assetId,mask}]`.
+- `action: "apply"`, the same source revisions and a completed current `jobId`.
+- `action: "confirm"`, the same source revisions; additionally requires retailer staff and an applied final image.
+
+POST queues a render (202) with `expectedRevision`, `expectedSceneVersion`, `expectedPhotoRevision`, `provider: "local" | "openai"`, `consent` and UUID `idempotencyKey`. OpenAI lighting requires explicit consent. Unknown fields, arbitrary image URLs, scale, SKU/price/dimension overrides and unauthorised image assets are rejected. Conflicts return 409; unavailable/incompatible assets return validation errors. Final bytes stream through the existing private project reference endpoint.
+
+Quotation preview/issue accepts optional strict `photo: {referenceId,compositionRevision,imageSha256}`. A project with a composition cannot issue a new quotation without current server-confirmed proof. The transaction pins original/final reference IDs, source revisions, layers and staff actor/time; the PDF route authorises access and verifies image bytes before export. See `photo-image-contract.ts` and [PHOTO_SELLING.md](PHOTO_SELLING.md).
+
 Account, organisation and project routes use server-verified sessions. Responses are private and uncached. JSON mutations require `application/json`, reject unknown fields and stream at most 64 KiB. Browser mutations reject a supplied Origin whose host differs from the HTTP Host. UUID path/query identifiers are validated; roles come from current database membership.
 
 ## Accounts and organisations

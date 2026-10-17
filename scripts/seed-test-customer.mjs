@@ -238,6 +238,65 @@ async function repairFixture(profile) {
       body: JSON.stringify({ expectedRevision: 0, calibration, regions: [], backgroundReferenceId: null }),
     });
   }
+  // A separate photographic replacement consultation never resets the retained furnished scene.
+  if (
+    !profile.replacementAssetId ||
+    !data(await admin.from('product_assets').select('id').eq('id', profile.replacementAssetId).limit(1))
+      .length
+  ) {
+    const linen = profile.products.find((item) => item.sku === 'BL-LINEN');
+    const bytes = await readFile(
+      path.join(root, 'fixtures/boreal-living/photo-replacement/BL-LINEN-front.png'),
+    );
+    const form = new FormData();
+    form.set('variantId', linen.variantIds[0]);
+    form.set('file', new File([bytes], 'BL-LINEN-front.png', { type: 'image/png' }));
+    profile.replacementAssetId = (
+      await request('/api/organisations/' + profile.organisationId + '/catalogue/' + linen.id + '/assets', {
+        method: 'POST',
+        body: form,
+      })
+    ).id;
+  }
+  if (!profile.replacementProjectId) {
+    const result = await request('/api/organisations/' + profile.organisationId + '/projects', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Photographic bed replacement — fictional measured trial',
+        customerId: null,
+        budgetMinor: 300000,
+        currency: 'EUR',
+        style: 'Fictional photograph · assumed measurements',
+        roomType: 'bedroom',
+        room: {
+          name: 'Photographic trial — assumed measurements',
+          width: 4,
+          depth: 4.5,
+          height: 2.7,
+          measurementsConfirmed: true,
+          openings: [],
+          zones: [],
+        },
+      }),
+    });
+    profile.replacementProjectId = result.id;
+    const bytes = await readFile(path.join(root, 'fixtures/boreal-living/photo-replacement/source.png')),
+      form = new FormData();
+    form.set(
+      'file',
+      new File([bytes], 'Boreal Living — photographic replacement trial (assumed measurements).png', {
+        type: 'image/png',
+      }),
+    );
+    const ref = await request('/api/projects/' + result.id + '/references', { method: 'POST', body: form });
+    const calibration = JSON.parse(
+      await readFile(path.join(root, 'fixtures/boreal-living/photo-replacement/calibration.json'), 'utf8'),
+    );
+    await request('/api/projects/' + result.id + '/photos/' + ref.id, {
+      method: 'PUT',
+      body: JSON.stringify({ expectedRevision: 0, calibration, regions: [], backgroundReferenceId: null }),
+    });
+  }
   if (!profile.consumerProjectId) {
     await request('/api/auth/login', {
       method: 'POST',

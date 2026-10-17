@@ -413,6 +413,213 @@ describe.skipIf(process.env.ROOMSELL_RUN_DATABASE_TESTS !== '1')(
         p_body: { calibration: null, regions: [], backgroundReferenceId: null, ...body },
       });
     }
+    async function compositionFixture() {
+      const p = await project(),
+        ref = await photoReference(p.project.id),
+        asset = randomUUID();
+      const calibration = JSON.parse(
+        await readFile('fixtures/boreal-living/photo-demo/calibration.json', 'utf8'),
+      );
+      ok(await photoWrite(p.project.id, ref.id, 0, { calibration }));
+      await db.query(
+        "insert into public.product_assets(id,organisation_id,product_id,variant_id,path,kind,mime_type,size_bytes) values($1,$2,$3,$4,$5,'image','image/png',100)",
+        [asset, org, product, variant, org + '/' + product + '/' + asset],
+      );
+      const body = {
+        expectedRevision: 0,
+        expectedSceneVersion: 0,
+        expectedPhotoRevision: 1,
+        layers: [
+          { objectId: p.scene.data.objects[0].id, assetId: asset, mask: { automatic: false, strokes: [] } },
+        ],
+      };
+      const change = (action: string, values: Record<string, unknown> = {}, actor = owner.id) =>
+        service.rpc('write_photo_composition', {
+          p_project_id: p.project.id,
+          p_reference_id: ref.id,
+          p_actor_id: actor,
+          p_action: action,
+          p_body: { ...body, ...values },
+        });
+      return { p, ref, asset, body, change };
+    }
+    async function completedComposition(f: Awaited<ReturnType<typeof compositionFixture>>) {
+      ok(await f.change('save'));
+      const output = await photoReference(f.p.project.id);
+      const job = ok(
+          await enqueue(f.p.project.id, owner.id, 'photo_render', randomUUID(), { referenceId: f.ref.id }),
+        ),
+        claim = ok(await service.rpc('claim_tenant_job'));
+      expect(claim.id).toBe(job.id);
+      const result = {
+        referenceId: f.ref.id,
+        compositionRevision: 1,
+        sceneVersion: 0,
+        photoRevision: 1,
+        renderedReferenceId: output.id,
+        imageSha256: 'a'.repeat(64),
+      };
+      ok(
+        await service.rpc('finish_tenant_job', {
+          p_job_id: job.id,
+          p_lease_token: claim.lease_token,
+          p_result: result,
+          p_error_code: null,
+          p_retryable: false,
+        }),
+      );
+      ok(await f.change('apply', { expectedRevision: 1, jobId: job.id }));
+      ok(await f.change('confirm', { expectedRevision: 1 }));
+      return {
+        job,
+        output,
+        result,
+        proof: { referenceId: f.ref.id, compositionRevision: 1, imageSha256: result.imageSha256 },
+      };
+    }
+    it('isolates photograph compositions, denies direct writes and requires current project edit authority', async () => {
+      const f = await compositionFixture();
+      ok(await f.change('save'));
+      expect(
+        ok(
+          await foreign.client.from('photo_compositions').select('reference_id').eq('reference_id', f.ref.id),
+        ),
+      ).toEqual([]);
+      expect(
+        (await owner.client.from('photo_compositions').update({ revision: 99 }).eq('reference_id', f.ref.id))
+          .error?.code,
+      ).toBe('42501');
+      expect(
+        (await service.from('photo_compositions').update({ revision: 99 }).eq('reference_id', f.ref.id)).error
+          ?.code,
+      ).toBe('42501');
+      expect((await f.change('save', { expectedRevision: 1 }, foreign.id)).error?.code).toBe('42501');
+    });
+    it('rejects forged asset/object associations and missing or duplicate photo image layers', async () => {
+      const f = await compositionFixture();
+      expect(
+        (await f.change('save', { layers: [{ ...f.body.layers[0], assetId: randomUUID() }] })).error?.code,
+      ).toBe('23514');
+      expect((await f.change('save', { layers: [] })).error?.code).toBe('23514');
+      expect((await f.change('save', { layers: [f.body.layers[0], f.body.layers[0]] })).error?.code).toBe(
+        '23514',
+      );
+      expect(
+        (await f.change('save', { layers: [{ ...f.body.layers[0], objectId: randomUUID() }] })).error?.code,
+      ).toBe('23514');
+    });
+    it('serializes simultaneous composition saves and refuses stale scene or photo sources', async () => {
+      const f = await compositionFixture(),
+        results = await Promise.all([f.change('save'), f.change('save')]);
+      expect(results.filter((r) => !r.error)).toHaveLength(1);
+      expect(results.filter((r) => r.error?.code === '40001')).toHaveLength(1);
+      expect((await f.change('save', { expectedRevision: 1, expectedSceneVersion: 99 })).error?.code).toBe(
+        '40001',
+      );
+      expect((await f.change('save', { expectedRevision: 1, expectedPhotoRevision: 99 })).error?.code).toBe(
+        '40001',
+      );
+    });
+    it('cannot apply an uncompleted or stale image render or confirm a draft', async () => {
+      const f = await compositionFixture();
+      ok(await f.change('save'));
+      expect((await f.change('confirm', { expectedRevision: 1 })).error?.code).toBe('40001');
+      expect((await f.change('apply', { expectedRevision: 1, jobId: randomUUID() })).error?.code).toBe(
+        '40001',
+      );
+      const output = await photoReference(f.p.project.id),
+        job = ok(
+          await enqueue(f.p.project.id, owner.id, 'photo_render', randomUUID(), { referenceId: f.ref.id }),
+        ),
+        claim = ok(await service.rpc('claim_tenant_job'));
+      ok(
+        await service.rpc('finish_tenant_job', {
+          p_job_id: job.id,
+          p_lease_token: claim.lease_token,
+          p_result: {
+            referenceId: f.ref.id,
+            compositionRevision: 1,
+            sceneVersion: 0,
+            photoRevision: 1,
+            renderedReferenceId: output.id,
+            imageSha256: 'a'.repeat(64),
+          },
+          p_error_code: null,
+          p_retryable: false,
+        }),
+      );
+      ok(await f.change('save', { expectedRevision: 1 }));
+      expect((await f.change('apply', { expectedRevision: 2, jobId: job.id })).error?.code).toBe('40001');
+    });
+    it('binds quotation image evidence atomically and protects the original and final photograph', async () => {
+      const f = await compositionFixture(),
+        done = await completedComposition(f),
+        source = quotationSourceSchema.parse(
+          ok(
+            await service.rpc('quotation_source', {
+              p_project_id: f.p.project.id,
+              p_actor_id: owner.id,
+              p_expected_scene_version: 0,
+              p_expected_policy_revision: 1,
+            }),
+          ),
+        );
+      const args = {
+        p_project_id: f.p.project.id,
+        p_actor_id: owner.id,
+        p_expected_scene_version: 0,
+        p_expected_policy_revision: 1,
+        p_idempotency_key: randomUUID(),
+        p_request_hash: 'b'.repeat(64),
+        p_source: source,
+        p_calculation: priceQuotation({
+          policy: source.policy,
+          items: source.items.map(({ variantId, sku, name, quantity, unitPriceMinor, currency }) => ({
+            variantId,
+            sku,
+            name,
+            quantity,
+            unitPriceMinor,
+            currency,
+          })),
+        }),
+      };
+      expect((await service.rpc('issue_quotation', args)).error?.code).toBe('40001');
+      expect(
+        (
+          await service.rpc('issue_photo_quotation', {
+            ...args,
+            p_photo: { ...done.proof, imageSha256: 'c'.repeat(64) },
+          })
+        ).error?.code,
+      ).toBe('40001');
+      const q = ok(await service.rpc('issue_photo_quotation', { ...args, p_photo: done.proof }));
+      expect(q.snapshot.photo.renderedReferenceId).toBe(done.output.id);
+      expect(q.snapshot.photo.layers[0].assetId).toBe(f.asset);
+      expect(q.snapshot.source.items[0].sku).toBe('PLATFORM-A');
+      expect(ok(await service.rpc('issue_photo_quotation', { ...args, p_photo: done.proof })).id).toBe(q.id);
+      for (const id of [f.ref.id, done.output.id])
+        expect(
+          (
+            await service.rpc('room_reference_write', {
+              p_project_id: f.p.project.id,
+              p_actor_id: owner.id,
+              p_reference_id: id,
+              p_asset: null,
+            })
+          ).error?.code,
+        ).toBe('23503');
+    });
+    it('requires another render and confirmation after photo selections change and denies customer confirmations', async () => {
+      const f = await compositionFixture();
+      await completedComposition(f);
+      expect((await f.change('confirm', { expectedRevision: 1 }, buyer.id)).error?.code).toBe('42501');
+      const cal = JSON.parse(await readFile('fixtures/boreal-living/photo-demo/calibration.json', 'utf8'));
+      ok(await photoWrite(f.p.project.id, f.ref.id, 1, { calibration: cal }));
+      expect((await f.change('confirm', { expectedRevision: 1, expectedPhotoRevision: 2 })).error?.code).toBe(
+        '40001',
+      );
+    });
     it('scopes photograph setup to its project and tenant and checks revisions', async () => {
       const p = await project(),
         otherProject = await project(),

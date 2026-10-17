@@ -1,5 +1,13 @@
 # Architecture-aligned roadmap
 
+## Approved photograph editing milestone — 17 October 2026
+
+Implemented: actual-photo object selection and mask correction; reviewed remove/replace cleanup; retailer image cutouts with immediate dragging; measured placement and top-down rug projection; explicit supplied image views; versioned PNG export; optional consented contact lighting; persisted staff confirmation; exact-image/SKU quotation and photo PDF; separate fictional photographic trial. No retailer 3D furniture viewer remains. Existing metric engine and workflows are preserved.
+
+Remaining acceptance is external: exercise OpenAI on real consented photographs with billing/model access, verify an actual measured room and suitable retailer image angles, run on the user's Windows Docker installation, and complete hosted/email/backup/operational gates if deploying publicly. Automatic depth reconstruction, novel product viewpoints, perfect segmentation/photorealism and customer electronic signatures require separate product decisions; they are not claimed by the current image composition.
+
+The sections below retain previous milestone context; the current guide is [PHOTO_SELLING.md](PHOTO_SELLING.md).
+
 Status: 16 October 2026. The user confirmed a salesperson-operated photo consultation with a short measured calibration. The visible 2D section is removed; retailer projects are photo-only and legacy demo/personal rooms use 3D. Scene v2, geometry, locks, tenant isolation and checked saving remain the foundation. Earlier delivery milestones below are retained as implementation history; current results belong in VALIDATION.md.
 
 ## Photo-first selling MVP

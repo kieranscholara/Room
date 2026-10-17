@@ -16,6 +16,7 @@ export interface TenantJob {
     | 'cleanup_storage'
     | 'cleanup_orphans'
     | 'photo_analysis'
+    | 'photo_render'
     | 'photo_cleanup';
   payload: Record<string, unknown>;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';

@@ -1,5 +1,13 @@
 # Database and persistence
 
+## Current photograph persistence — migrations 020–022
+
+`photo_compositions` is read-scoped by project RLS and writable only through checked service RPCs. It stores one bounded layer set per source photograph, CAS revision, scene/photo versions, applied render reference/hash and persisted staff actor/time. Layer admission checks exactly one authorised selected-product image for every current scene object. The write RPC serialises with organisation authority and validates confirmed measurements, calibration and exact source versions.
+
+`quotation_photo_evidence` adds composite tenant foreign keys that prevent deleting originals/final references retained by issued quotations. A before-insert trigger binds verified current photo proof to the existing immutable quotation snapshot; an after-insert trigger registers retention evidence. The wrapper preserves the existing `issue_quotation` price/stock/authority transaction. Migration021 decouples completed-job retention and retains historical staff IDs without an auth-user deletion dependency. Migration022 separates deterministic local export capacity (60/person/hour) from AI capacity (20/person/hour and100/organisation/hour).
+
+All are forward migrations, with no scene schema change, reset or catalogue rewrite. Source and final bytes stay private in `room-references`. JSON API masks remain strictly bounded; SQL independently checks object/asset/tenant relationships and stored payload size. See [SCENE_CONTRACT.md](SCENE_CONTRACT.md).
+
 Supabase PostgreSQL stores real organisation data. Apply the repository's pending local migrations with `npm run db:migrate` after `npm run setup:local`. The official CLI owns the migration ledger. The script never resets or reseeds existing data. Hosted migration application needs a separately configured, reviewed Supabase target; this local command always targets the local stack.
 
 ## Migrations

@@ -1,5 +1,15 @@
 # Current state: evidence-based audit
 
+## Current photograph image editing — 17 October 2026
+
+Retailer projects now edit the uploaded photograph with catalogue image cutouts using Canvas 2D; their WebGL/3D product overlay is removed. Immediate dragging uses the existing metric scene and checked preview/accept. `photo-image-layers.tsx`, `image-mask.ts` and `photo-floor-image.ts` provide source-pixel cutouts, brushes, foreground restoration and top-down rug projection. `photo-product.ts` derives metric envelopes without changing dimensions. Supplied image views remain explicit; footprint rotation does not invent hidden product surfaces.
+
+Original photo objects have reviewed polygon/brush masks and explicit remove/replace actions. Vision proposes visible outlines; cleanup only changes selected pixels. The local adapter recognises the registered synthetic and photographic fixtures, never arbitrary uploads. The new **Open photograph replacement trial** opens a separate empty Boreal project; its room measurements are assumed fictional values, not ground truth.
+
+`photo_compositions` (migrations 020–022) stores scene/photo revisions, authorised image layers, final private render hash/reference and persisted staff confirmation. Durable `photo_render` jobs export deterministic PNGs or optional consented OpenAI contact lighting with original product pixels reinserted. Quote issuance verifies exact confirmed proof under the existing organisation transaction and pins image/layer evidence into its immutable snapshot/PDF. It preserves the existing financial, stock and tenancy checks. No dependencies changed. [PHOTO_SELLING.md](PHOTO_SELLING.md) is the current walkthrough; [VALIDATION.md](VALIDATION.md) records executed checks.
+
+The dated sections below describe prior checkpoints; their local-only confirmation and retailer model overlay descriptions are superseded by this section.
+
 ## Salesperson photograph consultation — current, 16 October 2026
 
 The latest product direction supersedes the earlier requirement to retain a visible 2D editor. Retailer projects now open directly in the photograph workspace; `editor.tsx` no longer mounts the Konva floor plan or exposes a 2D section. Legacy demo/personal-room workspaces show 3D only. Scene v2, metric geometry, locks, tenant permissions, preview/accept and persistence remain the foundation; this is a presentation/workflow change with no new dependency or migration.

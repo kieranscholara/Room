@@ -7,14 +7,11 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { Matrix4, PerspectiveCamera } from 'three';
 import {
   calibratePhoto,
   photoPointToFloor,
   photoPointToPlane,
   type PhotoCalibration,
-  type PhotoCamera,
   type PhotoPoint,
 } from '@roomsell/geometry';
 import { propose } from '@roomsell/layout-engine';
@@ -27,7 +24,8 @@ import type { PhotoConsultationStatus, PhotoPlacementRequest } from '../lib/phot
 import { accountRequest } from './workspace-frame';
 import type { CatalogueProduct } from './workspace-business-types';
 import { formatMoney } from './workspace-business-types';
-import { Furniture3D, useProjectModels, ViewerBoundary } from './room-viewer-3d';
+import { PhotoImageLayers, PhotoForeground } from './photo-image-layers';
+import { PhotoCompositionControls, usePhotoComposition } from './photo-composition-controls';
 import { PhotoPhotoTools } from './photo-tools';
 import './photo-studio.css';
 
@@ -35,151 +33,6 @@ interface Reference {
   id: string;
   name: string;
   url: string;
-}
-interface PhotoRenderStatus {
-  sceneId: string;
-  canvasReady: boolean;
-  objects: Record<string, { kind: 'model' | 'proxy'; assetId?: string }>;
-}
-function CalibratedCamera({ pose }: { pose: PhotoCamera }) {
-  const { camera, invalidate } = useThree();
-  useEffect(() => {
-    if (!(camera instanceof PerspectiveCamera)) return;
-    const [x, y, z] = pose.axes,
-      t = pose.translation;
-    const view = new Matrix4().set(
-      x[0],
-      y[0],
-      z[0],
-      t[0],
-      -x[1],
-      -y[1],
-      -z[1],
-      -t[1],
-      -x[2],
-      -y[2],
-      -z[2],
-      -t[2],
-      0,
-      0,
-      0,
-      1,
-    );
-    view.invert().decompose(camera.position, camera.quaternion, camera.scale);
-    camera.fov = (2 * Math.atan(pose.height / (2 * pose.focal)) * 180) / Math.PI;
-    camera.aspect = pose.width / pose.height;
-    camera.near = 0.01;
-    camera.far = 200;
-    camera.updateProjectionMatrix();
-    camera.updateMatrixWorld();
-    invalidate();
-  }, [pose, camera, invalidate]);
-  return null;
-}
-function PhotoFurniture({
-  projectId,
-  scene,
-  pose,
-  onStart,
-  onRenderStatusChange,
-}: {
-  projectId: string;
-  scene: Scene;
-  pose: PhotoCamera;
-  onStart: (object: SceneObject, event: globalThis.PointerEvent, height: number) => void;
-  onRenderStatusChange: (status: PhotoRenderStatus) => void;
-}) {
-  const { selectedId, select } = useEditor(),
-    { resolutions, loaded, catalogueError, catalogueReady } = useProjectModels(projectId, scene, 0);
-  const [canvasReady, setCanvasReady] = useState(false);
-  const modelsReady =
-    catalogueReady &&
-    scene.objects.every((object) => {
-      const resolution = resolutions.get(object.id);
-      return (
-        resolution?.kind === 'proxy' || (resolution?.kind === 'model' && loaded.has(resolution.asset.id))
-      );
-    });
-  const renderStatus = useMemo<PhotoRenderStatus>(
-    () => ({
-      sceneId: scene.id,
-      canvasReady: canvasReady && modelsReady,
-      objects: Object.fromEntries(
-        scene.objects.map((object) => {
-          const resolution = resolutions.get(object.id);
-          const model = resolution?.kind === 'model' && loaded.get(resolution.asset.id)?.model;
-          return [
-            object.id,
-            model && resolution?.kind === 'model'
-              ? { kind: 'model', assetId: resolution.asset.id }
-              : { kind: 'proxy' },
-          ];
-        }),
-      ),
-    }),
-    [scene, resolutions, loaded, canvasReady, modelsReady],
-  );
-  useEffect(() => onRenderStatusChange(renderStatus), [onRenderStatusChange, renderStatus]);
-  useEffect(
-    () => () => onRenderStatusChange({ sceneId: scene.id, canvasReady: false, objects: {} }),
-    [onRenderStatusChange, scene.id],
-  );
-  const modelCount = Object.values(renderStatus.objects).filter((item) => item.kind === 'model').length;
-  return (
-    <>
-      <p
-        className="photo-proxy-note"
-        data-testid="photo-model-status"
-        data-ready={canvasReady && modelsReady}
-        style={{ position: 'absolute', bottom: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}
-      >
-        {modelCount} loaded catalogue {modelCount === 1 ? 'model' : 'models'} ·{' '}
-        {scene.objects.length - modelCount} measured box{' '}
-        {scene.objects.length - modelCount === 1 ? 'placeholder' : 'placeholders'}. Fictional models are
-        illustrative.
-        {catalogueError ? ` ${catalogueError}` : ''}
-        {[...loaded.values()].some((item) => item.error)
-          ? ' A model could not be loaded; its measured box is shown.'
-          : ''}
-      </p>
-      <Canvas
-        frameloop="demand"
-        dpr={[1, 2]}
-        gl={{ alpha: true, antialias: true }}
-        camera={{ near: 0.01, far: 200 }}
-        onCreated={({ gl }) => {
-          setCanvasReady(true);
-          gl.domElement.addEventListener('webglcontextlost', () => setCanvasReady(false));
-          gl.domElement.addEventListener('webglcontextrestored', () => setCanvasReady(true));
-        }}
-      >
-        <CalibratedCamera pose={pose} />
-        <ambientLight intensity={1.8} />
-        <directionalLight position={[3, 7, 5]} intensity={3} />
-        {scene.objects.map((object) => {
-          const resolution = resolutions.get(object.id),
-            model = resolution?.kind === 'model' ? loaded.get(resolution.asset.id)?.model : undefined;
-          return (
-            <group
-              key={object.id}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                onStart(object, event.nativeEvent, event.point.y);
-              }}
-            >
-              <Furniture3D
-                object={object}
-                model={model}
-                selected={selectedId === object.id}
-                changed={false}
-                onSelect={select}
-              />
-            </group>
-          );
-        })}
-      </Canvas>
-    </>
-  );
 }
 export default function PhotoStudio({
   projectId,
@@ -208,7 +61,6 @@ export default function PhotoStudio({
     [live, setLive] = useState<Scene | null>(null),
     [armed, setArmed] = useState<string | null>(null),
     [showDetectedAreas, setShowDetectedAreas] = useState(true),
-    [rendering, setRendering] = useState<PhotoRenderStatus | null>(null),
     [photoToolsPending, setPhotoToolsPending] = useState(false),
     [pendingPlacement, setPendingPlacement] = useState<PhotoPlacementRequest | null>(null);
   const [floor, setFloor] = useState({ x: 0, z: 0, width: 1, depth: 1 }),
@@ -220,9 +72,7 @@ export default function PhotoStudio({
     [catalogueLoading, setCatalogueLoading] = useState(false),
     [loadedCatalogueKey, setLoadedCatalogueKey] = useState('');
   const lastPlacementRequest = useRef('');
-  const renderStatusChange = useCallback((value: PhotoRenderStatus) => {
-    setRendering((old) => (JSON.stringify(old) === JSON.stringify(value) ? old : value));
-  }, []);
+  const compositionController = usePhotoComposition(projectId, referenceId, current, workspace);
   const stage = useRef<HTMLDivElement>(null),
     drag = useRef<{
       object: SceneObject;
@@ -378,6 +228,26 @@ export default function PhotoStudio({
     offset,
     available,
   ]);
+  const presentedLayers = [...compositionController.layers];
+  const previewAssetUrls: Record<string, string> = {};
+  for (const object of shown?.objects ?? []) {
+    if (presentedLayers.some((l) => l.objectId === object.id)) continue;
+    const entry = available.find((item) => item.variant.id === object.variantId);
+    if (!entry) continue;
+    const assets = entry.product.assets.filter(
+      (a) => a.kind === 'image' && (!a.variantId || a.variantId === entry.variant.id),
+    );
+    const image = assets.find((a) => a.validation.hasAlpha === true) ?? assets[0];
+    if (image) {
+      presentedLayers.push({
+        objectId: object.id,
+        assetId: image.id,
+        mask: { automatic: true, strokes: [] },
+      });
+      previewAssetUrls[image.id] =
+        `/api/organisations/${current?.organisationId}/catalogue/${entry.product.id}/assets/${image.id}`;
+    }
+  }
   const calibrated = Boolean(pose) && !editing;
   const imageReady = Boolean(
     workspace?.referenceId === referenceId &&
@@ -388,7 +258,7 @@ export default function PhotoStudio({
     !armed &&
     !pendingPlacement &&
     !photoToolsPending &&
-    (!pose || (rendering?.sceneId === shown?.id && rendering?.canvasReady)) &&
+    compositionController.imageReady &&
     !live,
   );
   useEffect(() => {
@@ -397,8 +267,28 @@ export default function PhotoStudio({
       photoRevision: workspace?.referenceId === referenceId ? workspace.revision : 0,
       calibrated,
       imageReady,
+      compositionRevision: compositionController.currentRender
+        ? compositionController.composition?.revision
+        : undefined,
+      renderedReferenceId: compositionController.currentRender
+        ? (compositionController.composition?.renderedReferenceId ?? undefined)
+        : undefined,
+      imageSha256: compositionController.currentRender
+        ? (compositionController.composition?.imageSha256 ?? undefined)
+        : undefined,
     });
-  }, [onStatusChange, referenceId, workspace?.referenceId, workspace?.revision, calibrated, imageReady]);
+  }, [
+    onStatusChange,
+    referenceId,
+    workspace?.referenceId,
+    workspace?.revision,
+    calibrated,
+    imageReady,
+    compositionController.currentRender,
+    compositionController.composition?.revision,
+    compositionController.composition?.renderedReferenceId,
+    compositionController.composition?.imageSha256,
+  ]);
   useEffect(
     () => () =>
       onStatusChange?.({ referenceId: null, photoRevision: 0, calibrated: false, imageReady: false }),
@@ -685,58 +575,51 @@ export default function PhotoStudio({
           />
           {pose && shown && !before && !editing && (
             <div className="photo-model-layer">
-              <ViewerBoundary
-                fallback={
-                  <p role="status">
-                    Photo furniture rendering requires WebGL. Enable browser hardware acceleration or use a
-                    supported browser to view the furniture in this photograph. Your saved design is
-                    preserved.
-                  </p>
-                }
-              >
-                <PhotoFurniture
-                  projectId={projectId}
-                  scene={shown}
-                  pose={pose}
-                  onStart={start}
-                  onRenderStatusChange={renderStatusChange}
-                />
-              </ViewerBoundary>
+              <PhotoImageLayers
+                projectId={projectId}
+                scene={shown}
+                pose={pose}
+                layers={presentedLayers}
+                assetUrls={previewAssetUrls}
+                interactive={!armed}
+                onStart={start}
+                onReady={compositionController.onImageReady}
+                selectedId={selectedId}
+              />
             </div>
           )}
           {!before &&
             !editing &&
             showDetectedAreas &&
-            workspace?.regions.map((r, i) => (
-              <div
-                key={r.id}
-                className="photo-region-label"
-                style={{
-                  left: `${r.bounds.x * 100}%`,
-                  top: `${r.bounds.y * 100}%`,
-                  width: `${r.bounds.width * 100}%`,
-                  height: `${r.bounds.height * 100}%`,
-                }}
-              >
-                {i + 1}. {r.label} · {r.disposition}
-              </div>
-            ))}
+            workspace?.regions
+              .filter((r) => !workspace.backgroundReferenceId || r.disposition !== 'remove')
+              .map((r, i) => (
+                <button
+                  type="button"
+                  aria-label={`Select existing ${r.label}`}
+                  disabled={Boolean(armed)}
+                  onPointerDown={(event) => {
+                    if (armed) return;
+                    event.stopPropagation();
+                    document.getElementById(`photo-region-${r.id}`)?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  key={r.id}
+                  className="photo-region-label"
+                  style={{
+                    left: `${r.bounds.x * 100}%`,
+                    top: `${r.bounds.y * 100}%`,
+                    width: `${r.bounds.width * 100}%`,
+                    height: `${r.bounds.height * 100}%`,
+                  }}
+                >
+                  {i + 1}. {r.label} · {r.disposition}
+                </button>
+              ))}
           {!before &&
             !editing &&
             workspace?.regions
               .filter((r) => r.disposition === 'keep' && r.foreground)
-              .map((r) => (
-                <img
-                  key={r.id}
-                  className="photo-foreground"
-                  src={reference.url}
-                  alt={`Foreground area: ${r.label}`}
-                  draggable={false}
-                  style={{
-                    clipPath: `inset(${r.bounds.y * 100}% ${(1 - r.bounds.x - r.bounds.width) * 100}% ${(1 - r.bounds.y - r.bounds.height) * 100}% ${r.bounds.x * 100}%)`,
-                  }}
-                />
-              ))}
+              .map((r) => <PhotoForeground key={r.id} sourceUrl={reference.url} region={r} />)}
           {editing && (
             <svg className="photo-marker-layer" viewBox="0 0 1000 1000" preserveAspectRatio="none">
               {points.map((p, i) => (
@@ -760,6 +643,20 @@ export default function PhotoStudio({
         </div>
       )}
       {!reference && <p className="account-notice">Upload the client's room photograph to begin.</p>}
+      {pose && reference && (
+        <p data-testid="photo-image-status" data-ready={compositionController.imageReady}>
+          {compositionController.layers.length} catalogue image layers · editable photograph
+        </p>
+      )}
+      {pose && reference && (
+        <PhotoCompositionControls
+          controller={compositionController}
+          projectId={projectId}
+          selectedId={selectedId}
+          readOnly={readOnly}
+          blocked={Boolean(proposal) || busy || saving || before || editing}
+        />
+      )}
       {workspace?.referenceId === referenceId && reference && (
         <PhotoPhotoTools
           key={referenceId}
@@ -771,6 +668,13 @@ export default function PhotoStudio({
           imageSize={imageSize}
           workspaceSaving={saving}
           onPendingChange={setPhotoToolsPending}
+          sourceUrl={reference.url}
+          onReplace={(region) => {
+            setError(
+              `The original ${region.label} has been removed from the photograph. Choose its replacement from Store inventory, then click its floor position.`,
+            );
+            document.getElementById('photo-store-inventory')?.scrollIntoView({ behavior: 'smooth' });
+          }}
         />
       )}
       {editing && workspace?.referenceId === referenceId && (
@@ -853,12 +757,8 @@ export default function PhotoStudio({
                 data-x={object.transform.x}
                 data-z={object.transform.z}
                 data-yaw={object.transform.rotation}
-                data-render-kind={
-                  rendering?.sceneId === shown?.id ? (rendering.objects[object.id]?.kind ?? 'proxy') : 'proxy'
-                }
-                data-asset-id={
-                  rendering?.sceneId === shown?.id ? rendering.objects[object.id]?.assetId : undefined
-                }
+                data-render-kind={presentedLayers.some((l) => l.objectId === object.id) ? 'image' : 'missing'}
+                data-asset-id={presentedLayers.find((l) => l.objectId === object.id)?.assetId}
                 aria-pressed={object.id === selectedId}
                 onClick={() => select(object.id)}
               >
@@ -887,7 +787,7 @@ export default function PhotoStudio({
                   })
                 }
               >
-                Rotate selected furniture
+                Rotate measured footprint
               </Button>
               <Button
                 disabled={locked || selected.locks.product}
@@ -898,7 +798,7 @@ export default function PhotoStudio({
             </div>
           )}
           {!readOnly && (
-            <div className="photo-inventory">
+            <div id="photo-store-inventory" className="photo-inventory">
               <h3>Store inventory</h3>
               <form
                 onSubmit={(event) => {
@@ -953,7 +853,7 @@ export default function PhotoStudio({
                       </small>
                       <span>{formatMoney(variant.priceMinor, product.currency)}</span>
                       <Button
-                        disabled={locked}
+                        disabled={locked || !image}
                         aria-pressed={armed === variant.id}
                         onClick={() => {
                           setPendingPlacement(null);

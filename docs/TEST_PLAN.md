@@ -1,5 +1,11 @@
 # Acceptance tests and quality gates
 
+## Current photograph image-editing acceptance
+
+The real photographic fixture test disables WebGL, reviews/removes the original bed, places and drags the actual Linen catalogue image, renders/reloads the final PNG, confirms its exact proof and issues a quotation/PDF containing that image. Unit cases protect alpha/RGB identity, polygon/brush correction, outside-mask pixels, source dimensions, rug projection and kept furniture during optional lighting. Database cases protect tenant/asset associations, CAS, stale/uncompleted jobs, staff confirmation, exact quote proof and reference retention.
+
+Each browser invocation archives its previous **disposable browser** profile/stock/supplier records under ignored restricted `.local/e2e-archives`, then seeds a distinct fictional retailer/actors. Existing browser database records remain available for diagnosis. This avoids sharing hourly AI quota and stock history across repeated acceptance runs. Stable browser encryption/worker keys and the interactive `.local/fixtures`/Docker trial remain untouched. Stop the interactive app/worker while browser/database suites run. No quota is disabled for testing.
+
 Start the local Supabase stack and apply migrations before database/authenticated browser suites:
 
 ```sh

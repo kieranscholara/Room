@@ -219,3 +219,60 @@
   background: #fff4db;
   padding: 8px;
 }
+.photo-product-layer {
+  position: absolute;
+  touch-action: none;
+}
+.photo-product-layer canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: grab;
+  touch-action: none;
+}
+.photo-product-layer.selected {
+  outline: 2px solid #277461;
+  outline-offset: 3px;
+}
+.photo-missing-image {
+  background: #fff3d7;
+  padding: 8px;
+  font-size: 12px;
+}
+.photo-mask-editor {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #d9e2d5;
+  border-radius: 8px;
+}
+.photo-mask-canvas {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 600px;
+  touch-action: none;
+  background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50%/20px 20px;
+}
+.photo-composition-controls {
+  padding: 16px;
+  margin: 12px 0;
+  border: 1px solid #cddccb;
+  background: #fff;
+  border-radius: 8px;
+}
+.photo-final-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 540px;
+  margin: 12px 0;
+}
+button.photo-region-label {
+  pointer-events: auto;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(255, 230, 170, 0.12);
+}
+button.photo-region-label:disabled {
+  pointer-events: none;
+}

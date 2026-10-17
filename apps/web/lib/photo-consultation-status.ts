@@ -4,6 +4,9 @@ export interface PhotoConsultationStatus {
   photoRevision: number;
   calibrated: boolean;
   imageReady: boolean;
+  compositionRevision?: number;
+  renderedReferenceId?: string;
+  imageSha256?: string;
 }
 /** A catalogue choice awaiting the salesperson's explicit click on the photo. */
 export interface PhotoPlacementRequest {

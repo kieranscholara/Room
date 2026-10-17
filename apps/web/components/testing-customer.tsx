@@ -8,13 +8,15 @@ export function TestingCustomer() {
   const router = useRouter(),
     [ready, setReady] = useState(false),
     [projectId, setProjectId] = useState(''),
+    [replacementProjectId, setReplacementProjectId] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   useEffect(() => {
-    void accountRequest<{ projectId: string }>('/api/testing/status')
+    void accountRequest<{ projectId: string; replacementProjectId?: string }>('/api/testing/status')
       .then((value) => {
         setReady(true);
         setProjectId(value.projectId);
+        setReplacementProjectId(value.replacementProjectId ?? '');
       })
       .catch((reason) => setError(reason.message));
   }, []);
@@ -33,6 +35,29 @@ export function TestingCustomer() {
             {error}
           </p>
         )}
+        <p>
+          Start with a furnished photograph. Select the original bed, review its removal, choose the store’s
+          Linen bed and save the edited photograph for quotation. The supplied trial uses recorded image edits
+          and assumed fictional measurements.
+        </p>
+        <Button
+          variant="primary"
+          disabled={!ready || busy || !replacementProjectId}
+          onClick={async () => {
+            setBusy(true);
+            setError('');
+            try {
+              await accountRequest('/api/testing/session', { method: 'POST', body: { persona: 'retailer' } });
+              router.push(`/projects/${replacementProjectId}?photo=replacement`);
+              router.refresh();
+            } catch (reason) {
+              setError(reason instanceof Error ? reason.message : 'Could not open photographic trial.');
+              setBusy(false);
+            }
+          }}
+        >
+          Open photograph replacement trial
+        </Button>
         <p>
           Try placing dimensioned furniture into a calibrated synthetic room image. The separate room
           photograph is available for your own calibration; the synthetic example has known measurements and a

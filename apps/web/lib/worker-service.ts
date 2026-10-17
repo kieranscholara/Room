@@ -6,6 +6,7 @@ import { ServiceError, isServiceError } from './editor-service';
 import type { TenantJob } from './jobs-service';
 import { executeDesignJob } from './design-assistant-service';
 import { executePhotoJob } from './photo-jobs-service';
+import { executeCompositionJob } from './photo-composition-jobs';
 import { testingEnabled, fixtureDirectory } from './local-testing';
 export async function assertWorkerAuthorization(header: string | null) {
   let secret = process.env.ROOMSELL_WORKER_TOKEN || process.env.CRON_SECRET;
@@ -100,6 +101,7 @@ export async function runWorkerBatch(maxJobs = 3) {
       retryable = false;
     try {
       if (job.kind === 'ai_design') result = await executeDesignJob(job);
+      else if (job.kind === 'photo_render') result = await executeCompositionJob(job);
       else if (job.kind === 'photo_analysis' || job.kind === 'photo_cleanup')
         result = await executePhotoJob(job);
       else if (job.kind === 'cleanup_storage') result = await cleanupStorage(job);

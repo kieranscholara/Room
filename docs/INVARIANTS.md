@@ -1,5 +1,15 @@
 # Architecture invariants
 
+## Photograph composition invariants — 17 October 2026
+
+- Retailer editing uses the client's photograph and catalogue image pixels. No WebGL/3D furniture viewer is required for this workflow.
+- Source photo bytes are never overwritten. Cleanup modifies only reviewed pixel masks; kept regions can restore original pixels. Auto cutouts and manual brushes change alpha only, preserving source RGB.
+- Every composition layer matches exactly one current scene object and an authorised image asset for its selected product/variant. Caller SKUs, dimensions, prices, URLs or free scale factors are rejected.
+- Product dimensions and locks stay in canonical metre-based geometry. Product images preserve their supplied view/aspect; rotating a footprint cannot create unseen surfaces.
+- Save, render, apply, confirm and quote are bound to scene/photo/composition revisions. Stale or unfinished jobs cannot become the confirmed image.
+- A quotation for a project with a composition requires server-confirmed image proof. Image/hash/layers/staff actor/time are pinned with the original financial snapshot under the existing tenant transaction. Quoted source and final references cannot be removed.
+- Real-photo AI processing requires explicit consent; local processing recognises registered fictional source hashes only. Every AI edit and final render requires human application.
+
 ## Photo selling invariants
 
 - One canonical metric scene feeds the calibrated photograph workspace and separate 3D adapters. The editor UI has no 2D section. Removing its presentation does not remove metric geometry, lock or fit validation; camera calibration never rescales catalogue geometry.

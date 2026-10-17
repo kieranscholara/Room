@@ -203,3 +203,4 @@ export function snapToWalls(object: SceneObject, room: Room, threshold = 0.15): 
   return transform;
 }
 export * from './photo-calibration';
+export { photoProductRect } from './photo-product';

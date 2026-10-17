@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { calibratePhotoInBrowser, clickPhotoFloor, confirmPhotoDesign } from './photo-helpers';
+import {
+  calibratePhotoInBrowser,
+  clickPhotoFloor,
+  confirmPhotoDesign,
+  uploadCataloguePhoto,
+} from './photo-helpers';
 
 test.use({
   launchOptions: {
@@ -47,6 +52,7 @@ test('retailer reviews exact pricing, issues an immutable quotation and download
   });
   expect(productResponse.status()).toBe(201);
   const product = await productResponse.json();
+  await uploadCataloguePhoto(page.request, org.id, product.id);
   const projectResponse = await page.request.post(`/api/organisations/${org.id}/projects`, {
     data: {
       name: 'Quotation bedroom',

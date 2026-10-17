@@ -7,11 +7,13 @@ import type { IssuedQuotation, QuotationSource, RetailerPricingPolicy } from '..
 import { useEditor } from '../lib/editor-store';
 import { accountRequest, type OrganisationRole } from './workspace-frame';
 import { formatMoney } from './workspace-business-types';
+import type { PhotoProof } from '../lib/photo-image-contract';
 
 interface Preview {
   source: QuotationSource;
   calculation: QuotationPricing;
   sourceFingerprint: string;
+  photo?: PhotoProof;
 }
 function QuoteAmounts({ calculation }: { calculation: QuotationPricing }) {
   const money = (value: number) => formatMoney(value, calculation.policy.currency);
@@ -70,11 +72,13 @@ export function ProjectQuotations({
   organisationId,
   role,
   canPrepareQuote = true,
+  photoProof,
 }: {
   projectId: string;
   organisationId: string;
   role: OrganisationRole;
   canPrepareQuote?: boolean;
+  photoProof?: PhotoProof;
 }) {
   const { scene, endpoint, proposal, busy: sceneBusy } = useEditor();
   const current = endpoint === `/api/projects/${projectId}/scene` ? scene : null;
@@ -109,10 +113,21 @@ export function ProjectQuotations({
   useEffect(() => {
     setPreview(null);
     setIssueKey(null);
-  }, [current?.version, current?.id, canPrepareQuote]);
+  }, [
+    current?.version,
+    current?.id,
+    canPrepareQuote,
+    photoProof?.referenceId,
+    photoProof?.compositionRevision,
+    photoProof?.imageSha256,
+  ]);
   const canReview =
     canPrepareQuote && staff && current && current.objects.length > 0 && !proposal && !sceneBusy && pricing;
   const chosen = quotes.find((quote) => quote.id === selected);
+  const previewMatchesPhoto =
+    preview?.photo?.referenceId === photoProof?.referenceId &&
+    preview?.photo?.compositionRevision === photoProof?.compositionRevision &&
+    preview?.photo?.imageSha256 === photoProof?.imageSha256;
   return (
     <section className="account-panel" aria-label="Project quotations">
       <div>
@@ -152,7 +167,11 @@ export function ProjectQuotations({
             try {
               const result = await accountRequest<Preview>(`/api/projects/${projectId}/quotations/preview`, {
                 method: 'POST',
-                body: { expectedSceneVersion: current.version, expectedPolicyRevision: pricing.revision },
+                body: {
+                  expectedSceneVersion: current.version,
+                  expectedPolicyRevision: pricing.revision,
+                  ...(photoProof ? { photo: photoProof } : {}),
+                },
               });
               setPreview(result);
               setIssueKey(crypto.randomUUID());
@@ -169,67 +188,71 @@ export function ProjectQuotations({
       <Button disabled={busy} onClick={() => void load()}>
         Refresh quotations and pricing
       </Button>
-      {preview && canPrepareQuote && preview.source.sceneVersion === current?.version && (
-        <div role="region" aria-label="Quotation preview">
-          <h3>Review quotation · design revision {preview.source.sceneVersion}</h3>
-          <QuoteAmounts calculation={preview.calculation} />
-          <p className="account-muted">
-            Tax {preview.source.policy.taxRateBps / 100}% ·{' '}
-            {preview.source.policy.taxMode === 'inclusive'
-              ? 'included in listed prices'
-              : 'added to listed prices'}{' '}
-            · {preview.source.policy.rounding === 'invoice' ? 'invoice rounding' : 'per-line rounding'}
-          </p>
-          <Button
-            variant="primary"
-            disabled={
-              busy ||
-              !issueKey ||
-              Boolean(proposal) ||
-              sceneBusy ||
-              current?.version !== preview.source.sceneVersion
-            }
-            onClick={async () => {
-              if (!issueKey || !canPrepareQuote || current?.version !== preview.source.sceneVersion) return;
-              setBusy(true);
-              setError('');
-              try {
-                const issued = await accountRequest<IssuedQuotation>(
-                  `/api/projects/${projectId}/quotations`,
-                  {
-                    method: 'POST',
-                    body: {
-                      expectedSceneVersion: preview.source.sceneVersion,
-                      expectedPolicyRevision: preview.source.policyRevision,
-                      expectedSourceFingerprint: preview.sourceFingerprint,
-                      idempotencyKey: issueKey,
+      {preview &&
+        previewMatchesPhoto &&
+        canPrepareQuote &&
+        preview.source.sceneVersion === current?.version && (
+          <div role="region" aria-label="Quotation preview">
+            <h3>Review quotation · design revision {preview.source.sceneVersion}</h3>
+            <QuoteAmounts calculation={preview.calculation} />
+            <p className="account-muted">
+              Tax {preview.source.policy.taxRateBps / 100}% ·{' '}
+              {preview.source.policy.taxMode === 'inclusive'
+                ? 'included in listed prices'
+                : 'added to listed prices'}{' '}
+              · {preview.source.policy.rounding === 'invoice' ? 'invoice rounding' : 'per-line rounding'}
+            </p>
+            <Button
+              variant="primary"
+              disabled={
+                busy ||
+                !issueKey ||
+                Boolean(proposal) ||
+                sceneBusy ||
+                current?.version !== preview.source.sceneVersion
+              }
+              onClick={async () => {
+                if (!issueKey || !canPrepareQuote || current?.version !== preview.source.sceneVersion) return;
+                setBusy(true);
+                setError('');
+                try {
+                  const issued = await accountRequest<IssuedQuotation>(
+                    `/api/projects/${projectId}/quotations`,
+                    {
+                      method: 'POST',
+                      body: {
+                        expectedSceneVersion: preview.source.sceneVersion,
+                        expectedPolicyRevision: preview.source.policyRevision,
+                        expectedSourceFingerprint: preview.sourceFingerprint,
+                        idempotencyKey: issueKey,
+                        ...(preview.photo ? { photo: preview.photo } : {}),
+                      },
                     },
-                  },
-                );
-                setQuotes((previous) => [issued, ...previous.filter((item) => item.id !== issued.id)]);
-                setSelected(issued.id);
+                  );
+                  setQuotes((previous) => [issued, ...previous.filter((item) => item.id !== issued.id)]);
+                  setSelected(issued.id);
+                  setPreview(null);
+                  setIssueKey(null);
+                } catch (reason) {
+                  setError(reason instanceof Error ? reason.message : 'Could not issue quotation.');
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Issue reviewed quotation
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
                 setPreview(null);
                 setIssueKey(null);
-              } catch (reason) {
-                setError(reason instanceof Error ? reason.message : 'Could not issue quotation.');
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Issue reviewed quotation
-          </Button>
-          <Button
-            disabled={busy}
-            onClick={() => {
-              setPreview(null);
-              setIssueKey(null);
-            }}
-          >
-            Discard quotation preview
-          </Button>
-        </div>
-      )}
+              }}
+            >
+              Discard quotation preview
+            </Button>
+          </div>
+        )}
       {loaded && quotes.length === 0 && (
         <p className="account-muted">No issued quotations for this project.</p>
       )}
@@ -265,6 +288,19 @@ export function ProjectQuotations({
         <div role="region" aria-label="Issued quotation details">
           <h3>{chosen.number}</h3>
           <QuoteAmounts calculation={chosen.snapshot.calculation} />
+          {chosen.snapshot.photo && (
+            <>
+              <img
+                className="photo-final-preview"
+                alt="Photograph confirmed with this quotation"
+                src={`/api/projects/${projectId}/references/${chosen.snapshot.photo.renderedReferenceId}`}
+              />
+              <p>
+                Confirmed photograph revision {chosen.snapshot.photo.compositionRevision} · original catalogue
+                images and SKU associations are retained in this quotation.
+              </p>
+            </>
+          )}
         </div>
       )}
     </section>

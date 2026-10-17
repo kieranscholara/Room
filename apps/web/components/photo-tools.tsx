@@ -5,6 +5,7 @@ import type { PhotoRegion, PhotoWorkspace } from '../lib/photo-contract';
 import { photoRegionSchema } from '../lib/photo-contract';
 import { useEditor } from '../lib/editor-store';
 import { accountRequest } from './workspace-frame';
+import { PixelMaskEditor } from './pixel-mask-editor';
 interface PhotoJob {
   id: string;
   kind: string;
@@ -31,6 +32,8 @@ export function PhotoPhotoTools({
   imageSize,
   workspaceSaving = false,
   onPendingChange,
+  sourceUrl,
+  onReplace,
 }: {
   projectId: string;
   workspace: PhotoWorkspace;
@@ -40,12 +43,15 @@ export function PhotoPhotoTools({
   imageSize: { width: number; height: number };
   workspaceSaving?: boolean;
   onPendingChange?: (pending: boolean) => void;
+  sourceUrl?: string;
+  onReplace?: (region: PhotoRegion) => void;
 }) {
   const [status, setStatus] = useState<Status | null>(null),
     [provider, setProvider] = useState<'openai' | 'test'>('openai'),
     [consent, setConsent] = useState(false),
     [regions, setRegions] = useState(workspace.regions),
     [pending, setPending] = useState(false),
+    [replacementTarget, setReplacementTarget] = useState<PhotoRegion | null>(null),
     [obstacle, setObstacle] = useState({ x: 1, z: 1, width: 1, depth: 1, name: 'Existing furniture' });
   const { scene, proposal, busy, preview } = useEditor();
   const path = `/api/projects/${projectId}/photos/${workspace.referenceId}/jobs`;
@@ -77,7 +83,7 @@ export function PhotoPhotoTools({
     onPendingChange?.(changed || running || workspaceSaving);
   }, [onPendingChange, changed, running, workspaceSaving]);
   useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
-  async function queue(kind: 'photo_analysis' | 'photo_cleanup') {
+  async function queue(kind: 'photo_analysis' | 'photo_cleanup', target: PhotoWorkspace = workspace) {
     setPending(true);
     onError('');
     try {
@@ -86,8 +92,8 @@ export function PhotoPhotoTools({
         body: {
           kind,
           provider,
-          referenceId: workspace.referenceId,
-          expectedRevision: workspace.revision,
+          referenceId: target.referenceId,
+          expectedRevision: target.revision,
           consent: true,
           idempotencyKey: crypto.randomUUID(),
         },
@@ -162,7 +168,7 @@ export function PhotoPhotoTools({
             OpenAI · live photograph processing
           </option>
           {status?.testAdapterEnabled && (
-            <option value="test">Local fixture adapter · synthetic demo only</option>
+            <option value="test">Local fixture adapter · registered photos only</option>
           )}
         </select>
       </Field>
@@ -178,8 +184,8 @@ export function PhotoPhotoTools({
         </label>
       ) : (
         <p>
-          Demonstration only: recorded selections and an empty reference for the labelled synthetic room. No
-          real photograph is analysed.
+          Demonstration only: recorded selections and a prepared cleanup for the supplied fictional
+          photographs. No live photograph analysis is performed.
         </p>
       )}
       <Button
@@ -226,7 +232,7 @@ export function PhotoPhotoTools({
         </div>
       )}
       {regions.map((region, index) => (
-        <div className="photo-analysis-item" key={region.id}>
+        <div className="photo-analysis-item" id={`photo-region-${region.id}`} key={region.id}>
           <Field label={`Selection ${index + 1} label`}>
             <input
               aria-label={`Selection ${index + 1} label`}
@@ -235,6 +241,34 @@ export function PhotoPhotoTools({
               onChange={(e) => update(region.id, { label: e.target.value })}
             />
           </Field>
+          <Button
+            disabled={disabled || (provider === 'openai' && (!consent || !status?.openAiConfigured))}
+            onClick={async () => {
+              const next = regions.map((r) =>
+                r.id === region.id ? { ...r, disposition: 'remove' as const, foreground: false } : r,
+              );
+              setRegions(next);
+              const saved = await save({ regions: next });
+              if (saved) await queue('photo_cleanup', saved);
+            }}
+          >
+            Remove this object
+          </Button>
+          <Button
+            disabled={disabled || (provider === 'openai' && (!consent || !status?.openAiConfigured))}
+            onClick={async () => {
+              const replacement = { ...region, disposition: 'remove' as const, foreground: false };
+              const next = regions.map((r) => (r.id === region.id ? replacement : r));
+              setRegions(next);
+              const saved = await save({ regions: next });
+              if (saved) {
+                setReplacementTarget(replacement);
+                await queue('photo_cleanup', saved);
+              }
+            }}
+          >
+            Replace this object from store
+          </Button>
           <Field label="Existing object action">
             <select
               aria-label={`Selection ${index + 1} action`}
@@ -282,6 +316,16 @@ export function PhotoPhotoTools({
               Keep this rectangular area in front of new products
             </label>
           </details>
+          {sourceUrl && (
+            <PixelMaskEditor
+              sourceUrl={sourceUrl}
+              mask={{ automatic: false, strokes: region.maskStrokes ?? [], outline: region.outline }}
+              bounds={region.bounds}
+              disabled={disabled}
+              label={`Refine ${region.label} selection`}
+              onChange={(mask) => update(region.id, { maskStrokes: mask.strokes })}
+            />
+          )}
           <Button
             disabled={disabled}
             onClick={() => setRegions((old) => old.filter((r) => r.id !== region.id))}
@@ -340,7 +384,12 @@ export function PhotoPhotoTools({
           />
           <Button
             disabled={disabled || changed}
-            onClick={() => void save({ backgroundReferenceId: cleanup.result!.generatedReferenceId! })}
+            onClick={async () => {
+              if (await save({ backgroundReferenceId: cleanup.result!.generatedReferenceId! })) {
+                if (replacementTarget) onReplace?.(replacementTarget);
+                setReplacementTarget(null);
+              }
+            }}
           >
             Use cleaned photograph
           </Button>

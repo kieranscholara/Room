@@ -8,7 +8,7 @@ This is a local test environment for Boreal Living, a fictional furniture retail
 2. Download/extract or check out the `roomsell/bedroom-editor-milestone` branch of `kieranscholara/Room`. Open a terminal in the folder containing `compose.yaml`.
 3. Run `docker compose up --build`.
 4. Wait for the log line beginning **READY**. The first image build and official service-image downloads can take several minutes. Keep at least 3 GiB free after downloads; leave additional space for images and data.
-5. Open the local app on port 3000 and go to `/testing`. Choose **Open photo placement demo** for the calibrated synthetic room, or **Enter as retailer** / **Enter as customer**. The third persona is the optional marketplace consumer.
+5. Open the local app on port 3000 and go to `/testing`. Choose **Open photograph replacement trial** for the photographic bed replacement example, or **Enter as retailer** / **Enter as customer**. The third persona is the optional marketplace consumer.
 
 The command installs the locked dependencies, starts/reuses the official local Supabase services, applies forward migrations without reset, creates only the registered fictional dataset and runs both the application and worker. Private generated passwords and keys stay in retained local Docker storage. The launcher never prints them.
 
@@ -17,6 +17,10 @@ The container uses host networking to reach the official CLI's loopback-publishe
 On Windows, you can also double-click `Start-RoomSell.cmd` after starting Docker Desktop. It checks the Docker daemon and keeps startup errors visible. The Windows batch entry point has been reviewed; the Docker build/runtime have been exercised on Linux, not on a Windows machine.
 
 Builds use ordinary Docker networking. Only the running app requests host networking. If an older downloaded copy reports `additional privileges requested: pass "--allow=network.host"`, obtain the updated branch or remove **only** `network: host` nested inside `build:` in `compose.yaml`. Keep the separate `network_mode: host` runtime setting. `COMPOSE_BAKE=false` is not a reliable workaround on all Docker versions.
+
+## Update using a ZIP
+
+Download the exact current-commit ZIP supplied with the delivery. Extract it to a new folder and copy your existing ignored `.env.trial` beside its `compose.yaml`. In that folder run `docker compose up -d --build --force-recreate`, wait for READY in `docker compose logs -f app`, then hard-refresh `http://localhost:3000/testing`. The fixed Compose project and existing named volumes retain data. Do not run `down -v` or delete Supabase volumes. Rebuilding an old folder cannot fetch new source files.
 
 ## Update your existing Git checkout
 
@@ -34,15 +38,9 @@ Wait for **READY**, then refresh `http://localhost:3000/testing`. Ctrl+C exits t
 
 ## Try the consultation
 
-1. Enter as retailer (Alex), inspect Catalogue and Inventory. Seven fictional products cover bed, wardrobe, bedside, rug and desk, with illustrative images and explicit measured dimensions.
-2. Open Maya's measured bedroom project. A bed, two bedside tables, rug, desk and fully locked wardrobe are already placed.
-3. In the calibrated synthetic photo, drag an unlocked product, review the preview and **Accept layout**. Rotate/remove a product or place an actual SKU from **Store inventory**. Check that locked furniture stays exact; reload to verify saved positions and calibration.
-4. Scan/review visible furniture using the labelled synthetic adapter. In **Complete the room**, request catalogue additions, chosen-product removals or keep/remove advice for known photo regions using **Local fictional-customer test adapter**. Review each action explicitly. Original-image cleanup requires a separately reviewed background job. This test output is not from OpenAI.
-5. In **Products and budget**, review the chosen furniture/positions with the client, tick the review checkbox and click **Confirm design for quotation** before reviewing and issuing a new quotation/PDF. This is a local session review and resets after relevant changes/reload. See [PHOTO_SELLING.md](PHOTO_SELLING.md) for the complete steps, including your own photo's short measured calibration.
-6. Return to `/testing` and enter as customer (Maya) to review the shared design and quotation. You can reserve, confirm or cancel the fictional order; as retailer you can record fulfilment. A durable Boreal supplier acknowledgement appears on the order. Repeating fulfilment reuses the same supplier reference and does not decrement stock twice.
-7. In Inventory, change a simulated upstream SKU quantity and synchronize. The simulated provider reconciles fulfilled quantities; no actual retailer is contacted.
+Use the complete [photograph editing walkthrough](PHOTO_SELLING.md). Start with **Open photograph replacement trial**: scan the registered fictional photograph, review its bed selection, replace it with the Linen store bed image, drag and accept its position, save/render/use the final photograph, confirm and quote. The image is included in the issued PDF. The primary retailer workspace uses Canvas 2D image cutouts, with no 3D furniture viewer.
 
-No payment is collected and no real email is sent. If you make changes, the next launch preserves them rather than resetting the consultation.
+The older six-object measured project and **Open photo placement demo** remain separate. Inventory, customer reservation/order, simulated supplier fulfilment and the optional consumer workflow remain in [TEST_CUSTOMER.md](TEST_CUSTOMER.md). No payment is collected and no real supplier is contacted. Updates preserve existing data rather than reset the consultation.
 
 ## Stop and return later
 

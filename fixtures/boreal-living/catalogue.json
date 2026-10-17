@@ -100,7 +100,8 @@
       "availability": "in_stock",
       "stockQuantity": 5,
       "leadTimeDays": 7,
-      "variants": []
+      "variants": [],
+      "fixtureImage": "desk.png"
     },
     {
       "sku": "BL-COVE",
@@ -119,7 +120,8 @@
       "availability": "in_stock",
       "stockQuantity": 4,
       "leadTimeDays": 7,
-      "variants": []
+      "variants": [],
+      "fixtureImage": "rug.png"
     },
     {
       "sku": "BL-NIGHT",

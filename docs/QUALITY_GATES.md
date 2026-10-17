@@ -1,5 +1,13 @@
 # Architecture quality gates
 
+## Current photograph image-editing gates — 17 October 2026
+
+- Alpha-only background/brush/outline operations preserve source RGB and restore original alpha. Cleanup preserves every unselected source pixel, including non-square/EXIF-oriented photos. Rugs map real product pixels onto the floor; envelope projection never changes metric dimensions.
+- Composition DB cases reject cross-tenant assets, forged object/product associations, incomplete/duplicate layers, direct writes, stale source revisions, CAS races, unfinished/stale renders and customer confirmation.
+- Quotation DB cases require confirmed current image proof, pin exact image/hash/layers/staff attribution and prevent deleting quoted source/final references; legacy quote financial/stock/permission cases still pass.
+- Browser acceptance replaces an original object in the actual photographic fixture, chooses/moves a real SKU image, saves/reloads its render and issues a photo-bearing PDF with WebGL disabled. Missing images cannot silently become generic product boxes. Existing inventory, layout locks, pricing, auth, orders and consumer tests remain.
+- CI retains lint, strict types, format, unit/property, real local integration, production build and browser checks. Never run concurrent local workers against acceptance-test jobs. Live provider image quality and a measured customer room are separate acceptance checks.
+
 ## Current photograph consultation gates
 
 Retailer projects must open directly in the photograph workspace with no visible 2D section; legacy demo/personal rooms use 3D. Preserve metric coordinate/lock/collision/SKU/persistence tests even though the old Konva adapter is no longer mounted.

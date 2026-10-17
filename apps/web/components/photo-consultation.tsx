@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@roomsell/ui';
 import type { SelectedProjectProducts } from '@roomsell/catalogue';
 import type { PhotoConsultationStatus } from '../lib/photo-consultation-status';
@@ -9,6 +9,7 @@ import { accountRequest, type OrganisationRole } from './workspace-frame';
 import { ProjectQuotations } from './project-quotations';
 import { formatMoney, type ProjectRecord } from './workspace-business-types';
 import './photo-consultation.css';
+import type { PhotoComposition, PhotoProof } from '../lib/photo-image-contract';
 
 interface ConsultationProject extends ProjectRecord {
   canEdit: boolean;
@@ -70,6 +71,11 @@ export function PhotoDesignReview({
   const [error, setError] = useState('');
   const [agreementKey, setAgreementKey] = useState<string | null>(null);
   const [confirmedKey, setConfirmedKey] = useState<string | null>(null);
+  const [photoProof, setPhotoProof] = useState<PhotoProof>();
+  const [confirming, setConfirming] = useState(false),
+    [confirmError, setConfirmError] = useState('');
+  const latestPhoto = useRef(photoStatus);
+  latestPhoto.current = photoStatus;
   const staff = project.role !== 'customer';
   const selected = products?.key === sceneKey ? products.value : null;
 
@@ -94,12 +100,17 @@ export function PhotoDesignReview({
     sceneKey,
     photoStatus.referenceId,
     photoStatus.photoRevision,
+    photoStatus.compositionRevision,
+    photoStatus.renderedReferenceId,
+    photoStatus.imageSha256,
     selected?.items.map((item) => [item.objectId, item.sku, item.priceMinor, item.available, item.stale]),
   ]);
   const hasPreview = Boolean(proposal);
   useEffect(() => {
     setAgreementKey(null);
     setConfirmedKey(null);
+    setPhotoProof(undefined);
+    setConfirmError('');
   }, [reviewKey, hasPreview, photoStatus.calibrated, photoStatus.imageReady]);
 
   const ready = Boolean(
@@ -110,6 +121,9 @@ export function PhotoDesignReview({
     photoStatus.referenceId &&
     photoStatus.calibrated &&
     photoStatus.imageReady &&
+    photoStatus.compositionRevision &&
+    photoStatus.renderedReferenceId &&
+    photoStatus.imageSha256 &&
     selected &&
     selected.items.length === current.objects.length &&
     selected.totalMinor !== null &&
@@ -141,6 +155,11 @@ export function PhotoDesignReview({
         {error && (
           <p className="account-error" role="alert">
             {error}
+          </p>
+        )}
+        {confirmError && (
+          <p role="alert" className="account-error">
+            {confirmError}
           </p>
         )}
         <Button
@@ -254,11 +273,16 @@ export function PhotoDesignReview({
                 Accept or discard the open furniture preview before confirming the design.
               </p>
             )}
+            {!photoStatus.renderedReferenceId && (
+              <p className="account-notice">
+                Save image layers, render and use the final photograph before confirming the client’s design.
+              </p>
+            )}
             <label className="business-checkbox">
               <input
                 type="checkbox"
                 checked={agreementKey === reviewKey}
-                disabled={!ready || confirmed}
+                disabled={!ready || confirmed || confirming}
                 onChange={(event) => {
                   setAgreementKey(event.target.checked ? reviewKey : null);
                   setConfirmedKey(null);
@@ -268,11 +292,51 @@ export function PhotoDesignReview({
             </label>
             <Button
               variant="primary"
-              disabled={!ready || agreementKey !== reviewKey || confirmed}
-              onClick={() => {
+              disabled={!ready || agreementKey !== reviewKey || confirmed || confirming}
+              onClick={async () => {
                 if (!ready || agreementKey !== reviewKey) return;
-                setConfirmedKey(reviewKey);
-                document.getElementById('consultation-quotation')?.scrollIntoView({ behavior: 'smooth' });
+                setConfirming(true);
+                setConfirmError('');
+                try {
+                  const result = await accountRequest<PhotoComposition>(
+                    `/api/projects/${project.id}/photos/${photoStatus.referenceId}/composition`,
+                    {
+                      method: 'PUT',
+                      body: {
+                        action: 'confirm',
+                        expectedRevision: photoStatus.compositionRevision,
+                        expectedSceneVersion: current!.version,
+                        expectedPhotoRevision: photoStatus.photoRevision,
+                      },
+                    },
+                  );
+                  const live = useEditor.getState(),
+                    photo = latestPhoto.current;
+                  if (
+                    live.endpoint !== endpoint ||
+                    live.scene?.version !== current?.version ||
+                    live.proposal ||
+                    photo.referenceId !== photoStatus.referenceId ||
+                    photo.photoRevision !== photoStatus.photoRevision ||
+                    photo.compositionRevision !== result.revision ||
+                    photo.imageSha256 !== result.imageSha256 ||
+                    !photo.imageReady
+                  )
+                    throw new Error('The photograph changed. Review and confirm the current design.');
+                  setPhotoProof({
+                    referenceId: result.referenceId,
+                    compositionRevision: result.revision,
+                    imageSha256: result.imageSha256!,
+                  });
+                  setConfirmedKey(reviewKey);
+                  document.getElementById('consultation-quotation')?.scrollIntoView({ behavior: 'smooth' });
+                } catch (reason) {
+                  setConfirmError(
+                    reason instanceof Error ? reason.message : 'The photograph could not be confirmed.',
+                  );
+                } finally {
+                  setConfirming(false);
+                }
               }}
             >
               Confirm design for quotation
@@ -294,6 +358,7 @@ export function PhotoDesignReview({
           organisationId={project.organisationId}
           role={project.role}
           canPrepareQuote={confirmed}
+          photoProof={photoProof}
         />
       </div>
     </>

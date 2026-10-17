@@ -1,5 +1,15 @@
 # Architecture decision proposals
 
+## ADR-007 — Edit the actual photograph with retailer image pixels
+
+**Accepted:** The user's explicit approval to build the photographic replacement plan supersedes the retailer model-overlay presentation. Preserve the application, pure metric engine and financial authority. Add no dependencies.
+
+**Decision:** Use Canvas 2D image cutouts with alpha-only masks, supplied catalogue image views and measured placement. Preserve source photographs; reviewed polygon/brush removal is a distinct image job. Export an exact PNG through durable jobs; optional consented AI contact lighting cannot repaint catalogue product pixels. Keep composition revisions separate from canonical scene v2. Require staff-confirmed current image proof for composition-backed quotations and retain image/hash/layers/actor in immutable evidence and PDF.
+
+**Alternatives/tradeoffs:** A 3D product viewer does not meet the requested photograph-only workflow. Unconstrained generative furniture replacement can change the advertised product. Single-image cutouts preserve product identity but cannot invent unseen surfaces or certify volumetric visual fit; suitable supplied views and human review are required. Full scene/depth reconstruction is separate future scope.
+
+**Evidence:** Migrations 020–022, composition/mask/renderer services, real database proof/tenancy cases and WebGL-disabled photographic replacement browser acceptance. Generated fixtures have recorded selections and assumed measurements. Live OpenAI quality and physical-room verification remain external gates.
+
 ## D-PHOTO-CONSULTATION — salesperson-operated photo-only workflow (16 October 2026)
 
 **Accepted direction:** The owner explicitly removed the need for a visible 2D section and confirmed that the salesperson operates the app with the client, retaining a short measured floor calibration. This supersedes earlier keep-2D user-interface requirements; it does not authorise removing canonical metric validation.

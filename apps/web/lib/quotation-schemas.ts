@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { pricingPolicySchema, quotationPricingSchema, pricingItemSchema } from '@roomsell/pricing';
+import { photoProofSchema, photoSnapshotSchema } from './photo-image-contract';
 
 const money = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 export const policyWriteSchema = z
@@ -9,6 +10,7 @@ export const quotationPreviewSchema = z
   .object({
     expectedSceneVersion: z.number().int().nonnegative(),
     expectedPolicyRevision: z.number().int().positive(),
+    photo: photoProofSchema.optional(),
   })
   .strict();
 export const quotationIssueSchema = quotationPreviewSchema
@@ -78,10 +80,21 @@ export const quotationSnapshotSchema = z
     source: quotationSourceSchema,
     calculation: quotationPricingSchema,
     inventoryReserved: z.literal(false),
+    photo: photoSnapshotSchema.optional(),
   })
   .strict()
   .superRefine((snapshot, context) => {
     const { source, calculation } = snapshot;
+    if (
+      snapshot.photo &&
+      (snapshot.photo.sceneVersion !== source.sceneVersion ||
+        JSON.stringify(snapshot.photo.layers.map((l) => l.objectId).sort()) !==
+          JSON.stringify(source.items.flatMap((i) => i.objectIds).sort()))
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Quotation image layers differ from the issued products or design revision',
+      });
     if (
       source.project.currency !== source.policy.currency ||
       source.retailer.currency !== source.policy.currency ||

@@ -73,7 +73,7 @@ async function decodeImage(bytes: Uint8Array, texture = false) {
     if ((metadata.pages ?? 1) !== 1) return error('Animated and multipage images are unsupported');
     // Full decoding catches truncated/corrupt data that a header-only metadata check can miss.
     await decoder.raw().toBuffer();
-    return { mimeType, width, height, pixels: width * height };
+    return { mimeType, width, height, pixels: width * height, hasAlpha: Boolean(metadata.hasAlpha) };
   } catch (cause) {
     if (cause instanceof AssetValidationError) throw cause;
     return error('Image data is corrupt, truncated or exceeds decoding limits');
